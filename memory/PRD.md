@@ -1,100 +1,129 @@
-# QGenie 2.0 — PRD & Implementation Record
+# QGenie 2.0 — Product Requirements Document
 
 ## Original Problem Statement
-Build QGenie 2.0 — a production-grade enterprise QA automation frontend for TD Bank (TCoE). React SPA with 5 AI-powered modules: Tosca Conversion, Test Generation, Failure RCA, Impact Analysis, Regression Optimization. Full 3-panel layout with fixed left sidebar (240px), fixed top bar (56px), fixed right chatbot panel (380px). Dark/light mode toggle. Demo data toggle for developers. JWT email+password auth.
+Build the complete QGenie 2.0 frontend — a production-grade enterprise UI for QA automation at TD Bank TCoE.
+
+**Requested Stack:** Next.js 14 with App Router, TypeScript, Tailwind CSS, Radix UI, Zustand, React Query, Monaco Editor, TanStack Table, Recharts.
+
+> **Note:** Previous agent built a React SPA (CRA + react-router-dom) instead of Next.js 14. Architecture divergence is tracked but not blocking feature delivery.
+
+---
+
+## User Personas
+- **QA Engineers**: Run AI modules (Tosca, TestGen, RCA, Impact, Regression) on their projects
+- **Test Leads**: Monitor jobs, review results, manage test plans
+- **Admins**: Manage users, project access, and module availability per project
+- **Developers**: Trigger impact/regression analysis against commits and PRs
+
+---
+
+## Core Modules (5 AI Modules)
+| Module | Path | Purpose |
+|--------|------|---------|
+| Tosca Conversion | `/projects/:id/tosca` | Convert Tosca XML to Playwright TypeScript |
+| Test Generation | `/projects/:id/test-gen` | Generate Gherkin BDD from Jira stories |
+| Failure RCA | `/projects/:id/rca` | AI root cause analysis from pipeline logs |
+| Impact Analysis | `/projects/:id/impact` | Commit-level test impact & risk scoring |
+| Regression Optimizer | `/projects/:id/regression` | Smart regression suite reduction |
+
+---
+
+## What's Been Implemented
+
+### Session 1 (Initial Build)
+- React SPA scaffold with Tailwind, Zustand, React Query, Axios
+- Sidebar, TopBar, ChatbotPanel, ProjectLayout
+- All 5 AI Module pages (with demo data simulation)
+- LoginPage, AdminPage, ProjectDashboard, ProjectsPage
+- TD Bank styling: green `#006B3C`, dark sidebar `#0D1F14`
+- Light/Dark mode toggle (persisted)
+- Demo mode toggle (mocked data)
+- JWT auth flow (demo: admin@tdbank.com / admin123, user@tdbank.com / test123)
+
+### Session 2 (Feb 2026 — 7 P0 Fixes)
+- ✅ **`timeAgo` utility** — Fixed "421d ago" timestamp display (relative time: 2h ago, 25m ago, etc.)
+- ✅ **`CenteredDialog` shared component** — Replaced all bare `Dialog.Root` usage; uses overlay flex-centering to avoid CSS transform traps
+- ✅ **My Jobs page** at `/projects/:projectId/jobs` — Shows all jobs for current project with TanStack Table; columns: Job ID, Module, Status, Triggered By, Executed; click row → open that module
+- ✅ **Admin: Manage Modules** — "Modules" button in Projects tab opens dialog with 5 `@radix-ui/react-switch` toggles per project; disabled modules hidden from Sidebar nav
+- ✅ **Notification Bell** — Radix DropdownMenu showing project-specific job notifications (seeded from DEMO_RECENT_JOBS); unread badge; Mark all read; Clear all; Click notification → navigate to module
+- ✅ **Browser (Chrome) push notifications** — `Notification` Web API integration; permission requested on first bell click; fires when job completes/fails
+- ✅ **SSE cleanup** — `useChatSSE` hook now exposes `cleanup()` with `timerRef` + `mountedRef`; ChatbotPanel calls cleanup on unmount
+- ✅ **Coverage Gap removed** — Deleted the Coverage Analysis accordion from TestGenModule
+
+### Demo data timestamps
+- DEMO_RECENT_JOBS now uses dynamic timestamps relative to `Date.now()` so notifications always show realistic "2h ago", "25m ago" etc.
+
+---
 
 ## Architecture
 
-### Tech Stack
-- **Framework**: React 18 (CRA with CRACO) — SPA, NOT Next.js (incompatible with Emergent env)
-- **Routing**: React Router DOM v6
-- **State**: Zustand v5 (app/job/chat stores) + TanStack Query v5 (server state)
-- **UI**: Tailwind CSS + Radix UI primitives (Dialog, Tabs, DropdownMenu, Checkbox)
-- **Tables**: TanStack Table v8
-- **Charts**: Recharts v3
-- **Code Editor**: Monaco Editor (@monaco-editor/react)
-- **File Upload**: React Dropzone v15
-- **Toast**: Sonner
-- **Icons**: Lucide React
+```
+/app/frontend/src/
+├── App.js                     ← Routes including /projects/:id/jobs
+├── components/
+│   ├── layout/
+│   │   ├── Sidebar.jsx        ← Module nav + My Jobs link + module enable/disable
+│   │   ├── TopBar.jsx         ← Project selector, Notification bell, User menu
+│   │   ├── ChatbotPanel.jsx   ← SSE cleanup on unmount
+│   │   └── ProjectLayout.jsx
+│   ├── shared/
+│   │   ├── CenteredDialog.jsx ← Reusable centered Radix Dialog wrapper
+│   │   ├── StepProgress.jsx
+│   │   ├── JobStatusBadge.jsx
+│   │   ├── FeedbackWidget.jsx
+│   │   └── LoadingSpinner.jsx
+│   └── modules/
+│       ├── ToscaModule.jsx
+│       ├── TestGenModule.jsx  ← Coverage Gap removed; CenteredDialog for Jira sub-tasks
+│       ├── RCAModule.jsx
+│       ├── ImpactModule.jsx   ← CenteredDialog for CI/CD inject
+│       └── RegressionModule.jsx ← CenteredDialog for export/inject
+├── hooks/
+│   ├── useAuth.js
+│   ├── useJobs.js             ← simulate() dispatches useNotificationStore + browser notification
+│   ├── useProjects.js
+│   └── useSSE.js              ← cleanup() with timerRef + mountedRef
+├── lib/
+│   ├── api.js
+│   ├── auth.js
+│   ├── demo-data.js           ← Dynamic timestamps for DEMO_RECENT_JOBS
+│   └── utils.js               ← timeAgo(), requestNotificationPermission(), showBrowserNotification()
+├── pages/
+│   ├── AdminPage.jsx          ← Manage Modules dialog with Switch toggles
+│   ├── LoginPage.jsx
+│   ├── ProjectDashboard.jsx
+│   ├── ProjectsPage.jsx
+│   └── MyJobsPage.jsx         ← NEW: per-project job listing
+└── store/
+    └── index.js               ← useAppStore (projectModules), useNotificationStore
+```
 
-### Color System (TD Bank)
-- Primary: #007A33 (td-green)
-- Dark Primary: #005C26 (td-dark-green)
-- Sidebar Dark: #0D1F14 (sidebar-bg)
-- Card Dark: #1A3626 (card-bg)
-- Light Accent: #EEF7F2 (td-light)
-- Mid Accent: #C8E6D5 (td-mid)
+---
 
-## What's Been Implemented (2025-03-26)
+## Key Credentials (Demo)
+| Role | Email | Password |
+|------|-------|---------|
+| Admin | admin@tdbank.com | admin123 |
+| Member | user@tdbank.com | test123 |
 
-### Authentication
-- JWT token stored in localStorage (TOKEN_KEY, USER_KEY)
-- Demo mode: validates against DEMO_USERS array in demo-data.js
-- Production mode: posts to /api/v1/auth/login (form-encoded)
-- Auto-redirect on 401 via Axios interceptor
-- Demo credentials: admin@tdbank.com/admin123, user@tdbank.com/test123
-
-### Pages
-- `/login` — Dark green branded login with demo quick-login buttons
-- `/projects` — 2-column project card grid
-- `/projects/:id` — Project dashboard (5 module cards + recent jobs table + quick actions)
-- `/projects/:id/tosca` — Tosca Conversion module
-- `/projects/:id/test-gen` — Test Generation module
-- `/projects/:id/rca` — Failure RCA module
-- `/projects/:id/impact` — Impact Analysis module
-- `/projects/:id/regression` — Regression Optimizer module
-- `/admin` — Admin panel (Users + Projects tabs, guarded for admin only)
-
-### Layout Components
-- **Sidebar**: Fixed 240px, dark green bg, all 5 module nav links, active state with green border, recent jobs at bottom
-- **TopBar**: Fixed 56px, project selector dropdown, Demo ON/OFF toggle, dark/light mode toggle, notification bell, user avatar with dropdown (Admin Panel link for admins)
-- **ChatbotPanel**: Fixed 380px right, KB/File/Repo context tabs, proactive suggestion chips, SSE streaming chat, message bubbles with citations
-- **ProjectLayout**: Outlet-based layout wrapping all project pages
-
-### Module Components (all 5 fully implemented)
-1. **ToscaModule**: File dropzone/Git path, framework/browser/URL config, step progress simulation, DiffEditor output (Monaco), quality report accordion, download/commit actions
-2. **TestGenModule**: Jira story fetch, AC preview, domain selector, step progress, Gherkin editor output, TanStack Table for test data, coverage gap accordion, Jira sub-tasks dialog
-3. **RCAModule**: Pipeline run ID input, step progress, classification badge + confidence meter, root cause narrative, fix actions with P1/P2/P3, evidence tabs (Logs/Metrics/JTMF), Recharts line chart
-4. **ImpactModule**: Commit SHA input, step progress, risk banner, donut chart (Recharts), filterable test plan table (TanStack Table), coverage gaps, CI/CD inject dialog
-5. **RegressionModule**: JTMF suite selector, risk profile JSON, step progress, summary banner, score distribution bar chart, test scoring table with expandable rows, flaky tests with sparklines, coverage tab chart, executive summary
-
-### Shared Components
-- **StepProgress**: Horizontal stepper with pending/running/complete/error states, animated pulse for running step
-- **FeedbackWidget**: Star rating, thumbs up/down, suggestion correction textarea, submit
-- **JobStatusBadge**: QUEUED/RUNNING/COMPLETE/FAILED with appropriate colors
-- **LoadingSpinner**: Animated green spinner
-
-### Demo Data (src/lib/demo-data.js)
-- DEMO_USERS (3 users with different roles/access)
-- DEMO_PROJECTS (3 TD Bank projects)
-- DEMO_RECENT_JOBS (7 jobs across projects)
-- DEMO_TOSCA_ORIGINAL + DEMO_TOSCA_GENERATED (realistic Playwright conversion)
-- DEMO_JIRA_STORY + DEMO_TESTGEN_FEATURE + DEMO_TESTGEN_DATA (Gherkin + examples table)
-- DEMO_RCA_RESULT (full RCA with logs, metrics, JTMF tests)
-- DEMO_IMPACT_RESULT (test plan with direct/indirect/excluded)
-- DEMO_REGRESSION_RESULT (1358→891 test reduction, flaky tests, sparklines)
-- DEMO_CHAT_RESPONSES (6 contextual chatbot responses)
+---
 
 ## Prioritized Backlog
 
-### P0 (Must do next)
-- Connect to real FastAPI backend when API is available
-- Replace demo mode with real OAuth2 login
+### P0 — Completed ✅
+All 7 fixes from Session 2
 
-### P1 (High priority)
-- Real SSE streaming for job progress (currently simulated)
-- Real chatbot SSE from /api/v1/chat/stream
-- File upload to backend for Tosca conversion
-- Git repository connection in ChatbotPanel
+### P1 — Next Sprint
+- Connect frontend to FastAPI backend (turn Demo mode OFF)
+- Real SSE at `/api/v1/jobs/{id}/stream?token=` for live pipeline progress
+- Persistent notifications via API (`GET /api/v1/notifications`)
+- Real Jira OAuth integration (fetch stories from live Jira)
 
-### P2 (Medium priority)
-- Monaco editor syntax highlighting for Gherkin (language mode)
-- Low-confidence step highlighting in ToscaModule diff
-- Session expiry handling / token refresh
-- Print/PDF export for reports
-
-### P3 (Nice to have)
-- Keyboard shortcuts (Cmd+K for quick navigation)
-- Analytics dashboard for admin
-- Notification system with websocket for job completion
-- Mobile responsive version
+### P2 — Future
+- Mobile responsive layout
+- WebSocket for live job updates across tabs
+- Export My Jobs data to CSV
+- Job re-run from My Jobs page
+- Architecture migration: React SPA → Next.js 14 App Router (as originally requested)
+- Admin: per-user module access (not just per-project)
+- Audit log page in Admin panel

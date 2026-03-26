@@ -189,6 +189,7 @@ export default function TopBar() {
               </div>
               {notifications.length > 0 && (
                 <button
+                  data-testid="mark-all-read"
                   className="text-xs text-muted-foreground hover:text-td-green transition-colors"
                   onClick={markAllRead}
                 >

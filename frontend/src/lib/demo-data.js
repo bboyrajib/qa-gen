@@ -63,13 +63,13 @@ export const DEMO_PROJECTS = [
 
 // ─── Recent Jobs ───────────────────────────────────────────────────────────────
 export const DEMO_RECENT_JOBS = [
-  { id: 'job-1', type: 'tosca-convert', status: 'COMPLETE', submitted: '2025-01-28T14:22:00Z', user: 'Alex Johnson', project_id: 'proj-1' },
-  { id: 'job-2', type: 'test-gen', status: 'RUNNING', submitted: '2025-01-28T15:10:00Z', user: 'Sarah Chen', project_id: 'proj-1' },
-  { id: 'job-3', type: 'rca', status: 'FAILED', submitted: '2025-01-28T13:55:00Z', user: 'Michael Torres', project_id: 'proj-1' },
-  { id: 'job-4', type: 'impact', status: 'COMPLETE', submitted: '2025-01-28T12:40:00Z', user: 'Alex Johnson', project_id: 'proj-1' },
-  { id: 'job-5', type: 'regression', status: 'QUEUED', submitted: '2025-01-28T16:00:00Z', user: 'Sarah Chen', project_id: 'proj-1' },
-  { id: 'job-6', type: 'tosca-convert', status: 'COMPLETE', submitted: '2025-01-27T09:30:00Z', user: 'Alex Johnson', project_id: 'proj-2' },
-  { id: 'job-7', type: 'impact', status: 'COMPLETE', submitted: '2025-01-27T11:20:00Z', user: 'Sarah Chen', project_id: 'proj-2' },
+  { id: 'job-1', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-1' },
+  { id: 'job-2', type: 'test-gen', status: 'RUNNING', submitted: new Date(Date.now() - 25 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-1' },
+  { id: 'job-3', type: 'rca', status: 'FAILED', submitted: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), user: 'Michael Torres', project_id: 'proj-1' },
+  { id: 'job-4', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-1' },
+  { id: 'job-5', type: 'regression', status: 'QUEUED', submitted: new Date(Date.now() - 5 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-1' },
+  { id: 'job-6', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-2' },
+  { id: 'job-7', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-2' },
 ]
 
 // ─── Tosca Module ──────────────────────────────────────────────────────────────
