@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useJobStore, useChatStore, useAppStore } from '@/store'
 import { useJobSimulator } from '@/hooks/useJobs'
 import StepProgress from '@/components/shared/StepProgress'
@@ -8,12 +8,13 @@ import {
   useReactTable, getCoreRowModel, flexRender, createColumnHelper
 } from '@tanstack/react-table'
 import {
-  DEMO_JIRA_STORY, DEMO_TESTGEN_FEATURE, DEMO_TESTGEN_DATA, DEMO_COVERAGE_GAPS
+  DEMO_JIRA_STORY, DEMO_TESTGEN_FEATURE, DEMO_TESTGEN_DATA
 } from '@/lib/demo-data'
-import { CheckCircle2, XCircle, ChevronDown, ChevronUp, RefreshCw, Loader2, FileText } from 'lucide-react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { RefreshCw, Loader2, FileText } from 'lucide-react'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
 import api from '@/lib/api'
+import { useLocation } from 'react-router-dom'
 
 const STEPS = ['Fetching Story', 'Checking Coverage', 'RAG Enrichment', 'Generating Scenarios', 'Synthesising Data', 'Validating', 'Ready']
 const colHelper = createColumnHelper()
@@ -26,12 +27,13 @@ export default function TestGenModule() {
   const [domain, setDomain] = useState('Payments')
   const [jtmfSuiteId, setJtmfSuiteId] = useState('')
   const [currentJobId, setCurrentJobId] = useState(null)
-  const [jobDone, setJobDone] = useState(false)
-  const [coverageOpen, setCoverageOpen] = useState(false)
+  const location = useLocation()
+  const [jobDone, setJobDone] = useState(!!location.state?.autoShow)
   const [showJiraDialog, setShowJiraDialog] = useState(false)
   const [fetchingStory, setFetchingStory] = useState(false)
 
   const { isDark, demoMode } = useAppStore()
+
   const { jobs } = useJobStore()
   const { simulate } = useJobSimulator()
   const { setLastJobType } = useChatStore()
@@ -287,45 +289,6 @@ export default function TestGenModule() {
                 </div>
               </div>
 
-              {/* Coverage Gap */}
-              <div className="bg-card border border-border rounded-xl overflow-hidden">
-                <button
-                  data-testid="testgen-coverage-accordion"
-                  onClick={() => setCoverageOpen((s) => !s)}
-                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
-                >
-                  <span className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    Coverage Analysis
-                    {DEMO_COVERAGE_GAPS.some((g) => !g.covered) && (
-                      <span className="text-xs px-1.5 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded-full">
-                        {DEMO_COVERAGE_GAPS.filter((g) => !g.covered).length} gap(s)
-                      </span>
-                    )}
-                  </span>
-                  {coverageOpen ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
-                </button>
-                {coverageOpen && (
-                  <div className="px-4 pb-4 space-y-2 animate-fade-in">
-                    {DEMO_COVERAGE_GAPS.map((gap) => (
-                      <div key={gap.ac} className={`flex items-start gap-3 p-3 rounded-lg border ${
-                        gap.covered
-                          ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800'
-                          : 'bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800'
-                      }`}>
-                        {gap.covered
-                          ? <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                          : <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                        }
-                        <div>
-                          <p className="text-xs font-semibold text-foreground">{gap.ac}</p>
-                          <p className="text-xs text-muted-foreground">{gap.description}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <FeedbackWidget jobId={currentJobId} moduleType="test-gen" />
             </>
           )}
@@ -333,33 +296,32 @@ export default function TestGenModule() {
       </div>
 
       {/* Jira Tasks Dialog */}
-      <Dialog.Root open={showJiraDialog} onOpenChange={setShowJiraDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[480px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-4">Create Jira Sub-tasks</Dialog.Title>
-            <p className="text-sm text-muted-foreground mb-3">The following sub-tasks will be created under {jiraId || 'TDB-1482'}:</p>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {DEMO_JIRA_STORY.acceptance_criteria.map((ac, i) => (
-                <div key={i} className="flex items-start gap-2 p-2 bg-muted/30 rounded">
-                  <span className="text-xs bg-td-green/10 text-td-green px-1.5 py-0.5 rounded font-mono">{DEMO_JIRA_STORY.id}-{100 + i}</span>
-                  <span className="text-xs text-foreground">{ac}</span>
-                </div>
-              ))}
+      <CenteredDialog
+        open={showJiraDialog}
+        onOpenChange={setShowJiraDialog}
+        title="Create Jira Sub-tasks"
+        width="480px"
+      >
+        <p className="text-sm text-muted-foreground mb-3">The following sub-tasks will be created under {jiraId || 'TDB-1482'}:</p>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {DEMO_JIRA_STORY.acceptance_criteria.map((ac, i) => (
+            <div key={i} className="flex items-start gap-2 p-2 bg-muted/30 rounded">
+              <span className="text-xs bg-td-green/10 text-td-green px-1.5 py-0.5 rounded font-mono">{DEMO_JIRA_STORY.id}-{100 + i}</span>
+              <span className="text-xs text-foreground">{ac}</span>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowJiraDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
-              <button
-                data-testid="testgen-jira-confirm-btn"
-                onClick={() => { setShowJiraDialog(false); toast.success('Jira sub-tasks created successfully!') }}
-                className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
-              >
-                Create {DEMO_JIRA_STORY.acceptance_criteria.length} Sub-tasks
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={() => setShowJiraDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
+          <button
+            data-testid="testgen-jira-confirm-btn"
+            onClick={() => { setShowJiraDialog(false); toast.success('Jira sub-tasks created successfully!') }}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Create {DEMO_JIRA_STORY.acceptance_criteria.length} Sub-tasks
+          </button>
+        </div>
+      </CenteredDialog>
     </div>
   )
 }

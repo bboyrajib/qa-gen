@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useJobStore, useChatStore, useAppStore } from '@/store'
 import { useJobSimulator } from '@/hooks/useJobs'
 import StepProgress from '@/components/shared/StepProgress'
@@ -8,6 +8,7 @@ import { DEMO_RCA_RESULT } from '@/lib/demo-data'
 import * as Tabs from '@radix-ui/react-tabs'
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, Loader2, Bug } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLocation } from 'react-router-dom'
 
 const STEPS = ['Receiving', 'Fetching Logs (Datadog)', 'Fetching Logs (Splunk)', 'Fetching JTMF', 'Fingerprinting', 'RAG Lookup', 'Analysing', 'Ready']
 
@@ -36,7 +37,8 @@ export default function RCAModule() {
   const [service, setService] = useState('')
   const [timeWindow, setTimeWindow] = useState('')
   const [currentJobId, setCurrentJobId] = useState(null)
-  const [jobDone, setJobDone] = useState(false)
+  const location = useLocation()
+  const [jobDone, setJobDone] = useState(!!location.state?.autoShow)
   const [expandedLog, setExpandedLog] = useState(null)
 
   const { isDark } = useAppStore()

@@ -1,20 +1,22 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useAllRecentJobs } from '@/hooks/useJobs'
-import { useProject } from '@/hooks/useProjects'
+import { useAppStore } from '@/store'
 import JobStatusBadge from '@/components/shared/JobStatusBadge'
 import {
   ShieldCheck, LayoutDashboard, ArrowLeftRight, FlaskConical,
-  Bug, Search, BarChart3, ChevronRight
+  Bug, Search, BarChart3, ChevronRight, Briefcase
 } from 'lucide-react'
+import { timeAgo } from '@/lib/utils'
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', path: '', icon: LayoutDashboard },
-  { label: 'Tosca Conversion', path: 'tosca', icon: ArrowLeftRight },
-  { label: 'Test Generation', path: 'test-gen', icon: FlaskConical },
-  { label: 'Failure RCA', path: 'rca', icon: Bug },
-  { label: 'Impact Analysis', path: 'impact', icon: Search },
-  { label: 'Regression Optimizer', path: 'regression', icon: BarChart3 },
+const ALL_NAV_ITEMS = [
+  { label: 'Dashboard', path: '', icon: LayoutDashboard, moduleKey: null },
+  { label: 'Tosca Conversion', path: 'tosca', icon: ArrowLeftRight, moduleKey: 'tosca' },
+  { label: 'Test Generation', path: 'test-gen', icon: FlaskConical, moduleKey: 'test-gen' },
+  { label: 'Failure RCA', path: 'rca', icon: Bug, moduleKey: 'rca' },
+  { label: 'Impact Analysis', path: 'impact', icon: Search, moduleKey: 'impact' },
+  { label: 'Regression Optimizer', path: 'regression', icon: BarChart3, moduleKey: 'regression' },
+  { label: 'My Jobs', path: 'jobs', icon: Briefcase, moduleKey: null },
 ]
 
 const MODULE_LABELS = {
@@ -29,12 +31,19 @@ export default function Sidebar() {
   const { projectId } = useParams()
   const location = useLocation()
   const { data: recentJobs } = useAllRecentJobs()
+  const getProjectModules = useAppStore((s) => s.getProjectModules)
+  const enabledModules = projectId ? getProjectModules(projectId) : {}
 
   const isActive = (path) => {
     const full = `/projects/${projectId}${path ? `/${path}` : ''}`
     if (path === '') return location.pathname === `/projects/${projectId}`
     return location.pathname.startsWith(full)
   }
+
+  const navItems = ALL_NAV_ITEMS.filter((item) => {
+    if (!item.moduleKey) return true
+    return enabledModules[item.moduleKey] !== false
+  })
 
   return (
     <aside
@@ -59,10 +68,14 @@ export default function Sidebar() {
           AI Modules
         </p>
         <ul className="space-y-0.5">
-          {NAV_ITEMS.map(({ label, path, icon: Icon }) => {
+          {navItems.map(({ label, path, icon: Icon }) => {
             const active = isActive(path)
+            const isJobs = path === 'jobs'
             return (
               <li key={path}>
+                {isJobs && (
+                  <div className="my-2 mx-2 h-px bg-white/10 dark:bg-white/10" />
+                )}
                 <Link
                   to={`/projects/${projectId}${path ? `/${path}` : ''}`}
                   data-testid={`sidebar-nav-${path || 'dashboard'}`}
@@ -93,9 +106,14 @@ export default function Sidebar() {
               key={job.id}
               className="flex items-center justify-between px-2 py-1.5 rounded text-xs hover:bg-white/5 transition-colors"
             >
-              <span className="text-gray-600 dark:text-white/50 truncate max-w-[120px]">
-                {MODULE_LABELS[job.type] || job.type}
-              </span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-gray-600 dark:text-white/50 truncate max-w-[120px]">
+                  {MODULE_LABELS[job.type] || job.type}
+                </span>
+                <span className="text-[9px] text-gray-400 dark:text-white/25 mt-0.5">
+                  {timeAgo(job.submitted)}
+                </span>
+              </div>
               <JobStatusBadge status={job.status} small />
             </li>
           ))}

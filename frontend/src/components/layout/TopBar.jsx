@@ -1,16 +1,40 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useAppStore } from '@/store'
+import { useAppStore, useNotificationStore } from '@/store'
 import { useProjects } from '@/hooks/useProjects'
 import {
-  Bell, Sun, Moon, Database, User, LogOut,
-  ChevronDown, Settings, ShieldCheck, Plus, ToggleLeft, ToggleRight
+  Bell, Sun, Moon, Database, LogOut,
+  ChevronDown, ShieldCheck, Plus, CheckCircle2, AlertCircle, Clock, Loader2
 } from 'lucide-react'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import * as Dialog from '@radix-ui/react-dialog'
 import { useCreateProject } from '@/hooks/useProjects'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
+import { timeAgo, requestNotificationPermission } from '@/lib/utils'
+
+const MODULE_LABELS = {
+  'tosca-convert': 'Tosca Conversion',
+  'test-gen': 'Test Generation',
+  rca: 'Failure RCA',
+  impact: 'Impact Analysis',
+  regression: 'Regression Optimizer',
+}
+
+const MODULE_PATHS = {
+  'tosca-convert': 'tosca',
+  'test-gen': 'test-gen',
+  rca: 'rca',
+  impact: 'impact',
+  regression: 'regression',
+}
+
+const STATUS_ICON = {
+  COMPLETE: <CheckCircle2 className="w-3.5 h-3.5 text-td-green flex-shrink-0" />,
+  FAILED: <AlertCircle className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />,
+  RUNNING: <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />,
+  QUEUED: <Clock className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />,
+}
 
 export default function TopBar() {
   const { user, logout, isAdmin } = useAuth()
@@ -20,6 +44,10 @@ export default function TopBar() {
   const [showNewProject, setShowNewProject] = useState(false)
   const [newProjectForm, setNewProjectForm] = useState({ name: '', jira_project_key: '', domain_tag: 'Payments' })
   const createProject = useCreateProject()
+
+  const { getProjectNotifications, getUnreadCount, markAllRead, dismissAll } = useNotificationStore()
+  const notifications = activeProjectId ? getProjectNotifications(activeProjectId) : []
+  const unreadCount = activeProjectId ? getUnreadCount(activeProjectId) : 0
 
   const activeProject = projects?.find((p) => p.id === activeProjectId)
   const initials = user?.name ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'
@@ -36,6 +64,16 @@ export default function TopBar() {
     } catch {
       toast.error('Failed to create project')
     }
+  }
+
+  const handleBellOpen = () => {
+    requestNotificationPermission()
+  }
+
+  const handleNotificationClick = (notif) => {
+    if (!activeProjectId || !notif.type) return
+    const path = MODULE_PATHS[notif.type]
+    if (path) navigate(`/projects/${activeProjectId}/${path}`, { state: { autoShow: notif.status === 'COMPLETE' } })
   }
 
   return (
@@ -117,13 +155,123 @@ export default function TopBar() {
       </button>
 
       {/* Notification Bell */}
-      <button
-        data-testid="notification-bell"
-        className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors relative"
-      >
-        <Bell className="w-4 h-4" />
-        <span className="absolute top-1 right-1 w-2 h-2 bg-td-green rounded-full" />
-      </button>
+      <DropdownMenu.Root onOpenChange={(open) => open && handleBellOpen()}>
+        <DropdownMenu.Trigger asChild>
+          <button
+            data-testid="notification-bell"
+            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors relative"
+            title="Notifications"
+          >
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-td-green text-white text-[9px] font-bold rounded-full flex items-center justify-center leading-none">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            className="z-50 w-[360px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-xl animate-fade-in"
+            sideOffset={6}
+            align="end"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <div className="flex items-center gap-2">
+                <Bell className="w-4 h-4 text-foreground" />
+                <span className="text-sm font-semibold text-foreground">Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 bg-td-green/10 text-td-green rounded-full font-medium">
+                    {unreadCount} new
+                  </span>
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <button
+                  className="text-xs text-muted-foreground hover:text-td-green transition-colors"
+                  onClick={markAllRead}
+                >
+                  Mark all read
+                </button>
+              )}
+            </div>
+
+            {/* Notification List */}
+            <div className="max-h-[340px] overflow-y-auto divide-y divide-border">
+              {notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <Bell className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+                  <p className="text-xs text-muted-foreground">No notifications yet</p>
+                  {!activeProjectId && (
+                    <p className="text-xs text-muted-foreground mt-1">Select a project to see job notifications</p>
+                  )}
+                </div>
+              ) : (
+                notifications.slice(0, 15).map((notif) => (
+                  <DropdownMenu.Item
+                    key={notif.id}
+                    data-testid={`notification-item-${notif.id}`}
+                    className={`flex items-start gap-3 px-4 py-3 cursor-pointer outline-none transition-colors hover:bg-muted/40 dark:hover:bg-white/5 ${
+                      !notif.read ? 'bg-td-green/5 dark:bg-td-green/10' : ''
+                    }`}
+                    onSelect={() => handleNotificationClick(notif)}
+                  >
+                    <div className="mt-0.5">{STATUS_ICON[notif.status] || STATUS_ICON.QUEUED}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-foreground truncate">
+                          {MODULE_LABELS[notif.type] || notif.type}
+                        </span>
+                        {!notif.read && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-td-green flex-shrink-0" />
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        <span className={`font-medium ${
+                          notif.status === 'COMPLETE' ? 'text-td-green' :
+                          notif.status === 'FAILED' ? 'text-red-500' :
+                          notif.status === 'RUNNING' ? 'text-blue-500' : 'text-amber-500'
+                        }`}>
+                          {notif.status}
+                        </span>
+                        {' · '}Job <code className="font-mono text-foreground/70">{notif.jobId}</code>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        Triggered by <span className="text-foreground">{notif.triggeredBy}</span>
+                        {' · '}
+                        {timeAgo(notif.timestamp)}
+                      </p>
+                    </div>
+                  </DropdownMenu.Item>
+                ))
+              )}
+            </div>
+
+            {/* Footer */}
+            {notifications.length > 0 && (
+              <div className="px-4 py-2.5 border-t border-border flex items-center justify-between">
+                <button
+                  className="text-xs text-muted-foreground hover:text-destructive transition-colors"
+                  onClick={dismissAll}
+                >
+                  Clear all
+                </button>
+                {activeProjectId && (
+                  <DropdownMenu.Item asChild>
+                    <Link
+                      to={`/projects/${activeProjectId}/jobs`}
+                      className="text-xs text-td-green hover:underline outline-none"
+                    >
+                      View all jobs →
+                    </Link>
+                  </DropdownMenu.Item>
+                )}
+              </div>
+            )}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
 
       {/* User Menu */}
       <DropdownMenu.Root>
@@ -171,65 +319,65 @@ export default function TopBar() {
       </DropdownMenu.Root>
 
       {/* New Project Dialog */}
-      <Dialog.Root open={showNewProject} onOpenChange={setShowNewProject}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50 animate-fade-in" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] bg-white dark:bg-[#1A3626] rounded-xl shadow-2xl border border-border p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-4">Create New Project</Dialog.Title>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Project Name</label>
-                <input
-                  data-testid="new-project-name-input"
-                  className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={newProjectForm.name}
-                  onChange={(e) => setNewProjectForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="e.g. TD Wealth Platform"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Jira Project Key</label>
-                <input
-                  data-testid="new-project-jira-input"
-                  className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={newProjectForm.jira_project_key}
-                  onChange={(e) => setNewProjectForm((f) => ({ ...f, jira_project_key: e.target.value.toUpperCase() }))}
-                  placeholder="e.g. TWP"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Domain</label>
-                <select
-                  data-testid="new-project-domain-select"
-                  className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={newProjectForm.domain_tag}
-                  onChange={(e) => setNewProjectForm((f) => ({ ...f, domain_tag: e.target.value }))}
-                >
-                  {['Payments', 'Accounts', 'Lending', 'Transfers', 'Wealth', 'Other'].map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => setShowNewProject(false)}
-                className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                data-testid="create-project-submit"
-                onClick={handleCreateProject}
-                disabled={!newProjectForm.name.trim()}
-                className="px-4 py-2 text-sm rounded-md bg-td-green text-white font-medium hover:bg-td-dark-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Create Project
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <CenteredDialog
+        open={showNewProject}
+        onOpenChange={setShowNewProject}
+        title="Create New Project"
+        width="420px"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Project Name</label>
+            <input
+              data-testid="new-project-name-input"
+              className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              value={newProjectForm.name}
+              onChange={(e) => setNewProjectForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="e.g. TD Wealth Platform"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Jira Project Key</label>
+            <input
+              data-testid="new-project-jira-input"
+              className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              value={newProjectForm.jira_project_key}
+              onChange={(e) => setNewProjectForm((f) => ({ ...f, jira_project_key: e.target.value.toUpperCase() }))}
+              placeholder="e.g. TWP"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Domain</label>
+            <select
+              data-testid="new-project-domain-select"
+              className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              value={newProjectForm.domain_tag}
+              onChange={(e) => setNewProjectForm((f) => ({ ...f, domain_tag: e.target.value }))}
+            >
+              {['Payments', 'Accounts', 'Lending', 'Transfers', 'Wealth', 'Other'].map((d) => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={() => setShowNewProject(false)}
+            className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            data-testid="create-project-submit"
+            onClick={handleCreateProject}
+            disabled={!newProjectForm.name.trim()}
+            className="px-4 py-2 text-sm rounded-md bg-td-green text-white font-medium hover:bg-td-dark-green transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Create Project
+          </button>
+        </div>
+      </CenteredDialog>
     </header>
   )
 }

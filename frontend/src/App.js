@@ -14,6 +14,7 @@ import TestGenModule from '@/components/modules/TestGenModule'
 import RCAModule from '@/components/modules/RCAModule'
 import ImpactModule from '@/components/modules/ImpactModule'
 import RegressionModule from '@/components/modules/RegressionModule'
+import MyJobsPage from '@/pages/MyJobsPage'
 import '@/App.css'
 
 const queryClient = new QueryClient({
@@ -60,6 +61,7 @@ function App() {
             <Route path="rca" element={<RCAModule />} />
             <Route path="impact" element={<ImpactModule />} />
             <Route path="regression" element={<RegressionModule />} />
+            <Route path="jobs" element={<MyJobsPage />} />
           </Route>
         </Routes>
         <Toaster position="top-right" richColors />

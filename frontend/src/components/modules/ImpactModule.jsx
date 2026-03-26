@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useJobStore, useChatStore, useAppStore } from '@/store'
 import { useJobSimulator } from '@/hooks/useJobs'
 import StepProgress from '@/components/shared/StepProgress'
@@ -10,8 +10,9 @@ import {
 } from '@tanstack/react-table'
 import { DEMO_IMPACT_RESULT } from '@/lib/demo-data'
 import { ChevronDown, ChevronUp, Loader2, Search, GitBranch } from 'lucide-react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
+import { useLocation } from 'react-router-dom'
 
 const STEPS = ['Fetching Diff', 'AST Analysis', 'Coverage Lookup', 'Call Graph', 'Risk Assessment', 'Scoring', 'Ready']
 const colHelper = createColumnHelper()
@@ -33,7 +34,8 @@ export default function ImpactModule() {
   const [repo, setRepo] = useState('')
   const [prId, setPrId] = useState('')
   const [currentJobId, setCurrentJobId] = useState(null)
-  const [jobDone, setJobDone] = useState(false)
+  const location = useLocation()
+  const [jobDone, setJobDone] = useState(!!location.state?.autoShow)
   const [gapsOpen, setGapsOpen] = useState(false)
   const [showInjectDialog, setShowInjectDialog] = useState(false)
   const [reasonFilter, setReasonFilter] = useState('ALL')
@@ -323,30 +325,29 @@ export default function ImpactModule() {
       )}
 
       {/* Inject Dialog */}
-      <Dialog.Root open={showInjectDialog} onOpenChange={setShowInjectDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[400px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-2">Inject into CI/CD</Dialog.Title>
-            <p className="text-sm text-muted-foreground mb-4">
-              This will inject the optimised test plan ({r.total_recommended} tests) into your CI/CD pipeline for this commit.
-            </p>
-            <div className="p-3 bg-td-green/10 border border-td-green/30 rounded-lg mb-4 text-xs text-foreground">
-              Commit: <code className="font-mono font-bold">{r.commit_sha}</code> · Repo: {r.repository}
-            </div>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowInjectDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
-              <button
-                data-testid="impact-inject-confirm-btn"
-                onClick={() => { setShowInjectDialog(false); toast.success('Test plan injected into CI/CD pipeline!') }}
-                className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
-              >
-                Confirm Injection
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <CenteredDialog
+        open={showInjectDialog}
+        onOpenChange={setShowInjectDialog}
+        title="Inject into CI/CD"
+        width="400px"
+      >
+        <p className="text-sm text-muted-foreground mb-4">
+          This will inject the optimised test plan ({r.total_recommended} tests) into your CI/CD pipeline for this commit.
+        </p>
+        <div className="p-3 bg-td-green/10 border border-td-green/30 rounded-lg mb-4 text-xs text-foreground">
+          Commit: <code className="font-mono font-bold">{r.commit_sha}</code> · Repo: {r.repository}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setShowInjectDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
+          <button
+            data-testid="impact-inject-confirm-btn"
+            onClick={() => { setShowInjectDialog(false); toast.success('Test plan injected into CI/CD pipeline!') }}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Confirm Injection
+          </button>
+        </div>
+      </CenteredDialog>
     </div>
   )
 }

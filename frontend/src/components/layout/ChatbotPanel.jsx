@@ -7,7 +7,7 @@ import * as Tabs from '@radix-ui/react-tabs'
 
 const CONTEXT_CHIPS = {
   tosca: ['Explain low-confidence steps', 'How to fix this Playwright locator?', 'What does RAG Enrichment do?'],
-  'test-gen': ['Are there missing edge cases?', 'Explain the coverage gap', 'Generate more boundary scenarios'],
+  'test-gen': ['Are there missing edge cases?', 'Generate more boundary scenarios'],
   rca: ['Why did this failure occur?', 'Show me the fix suggestion', 'What evidence confirms this?'],
   impact: ['Why are indirect tests included?', 'Explain the blast radius', 'How is risk score calculated?'],
   regression: ['Why was this test excluded?', 'Explain the flakiness score', 'What is the coverage impact?'],
@@ -20,12 +20,15 @@ export default function ChatbotPanel() {
   const [uploadedFile, setUploadedFile] = useState(null)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
-  const { sendMessage } = useChatSSE()
+  const { sendMessage, cleanup } = useChatSSE()
   const { messages, isStreaming, streamingContent, lastJobType } = useChatStore()
   const { activeJobId, jobs } = useJobStore()
 
   const activeJobData = activeJobId ? jobs[activeJobId] : null
   const chips = CONTEXT_CHIPS[activeJobData?.type] || []
+
+  // Cleanup SSE/intervals on unmount
+  useEffect(() => () => cleanup(), [cleanup])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

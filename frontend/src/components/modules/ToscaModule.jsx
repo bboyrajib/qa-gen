@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useJobStore, useChatStore } from '@/store'
 import { useJobSimulator } from '@/hooks/useJobs'
@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import api from '@/lib/api'
+import { useLocation } from 'react-router-dom'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 
 const STEPS = ['Validating', 'Parsing', 'Mapping', 'RAG Enrichment', 'Generating', 'Compiling', 'Ready']
 
@@ -28,7 +30,8 @@ export default function ToscaModule() {
   const [jiraId, setJiraId] = useState('')
   const [jiraPreview, setJiraPreview] = useState(null)
   const [currentJobId, setCurrentJobId] = useState(null)
-  const [jobDone, setJobDone] = useState(false)
+  const location = useLocation()
+  const [jobDone, setJobDone] = useState(!!location.state?.autoShow)
   const [qualityOpen, setQualityOpen] = useState(false)
   const [branchName, setBranchName] = useState('')
   const [showBranchDialog, setShowBranchDialog] = useState(false)
@@ -357,31 +360,32 @@ export default function ToscaModule() {
       </div>
 
       {/* Branch Dialog */}
-      {showBranchDialog && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-[#1A3626] rounded-xl border border-border p-6 w-[360px] shadow-2xl animate-fade-in">
-            <h3 className="text-base font-semibold text-foreground mb-4">Commit to Git</h3>
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Branch Name</label>
-            <input
-              data-testid="tosca-branch-name-input"
-              className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="feat/tosca-migration-tc001"
-              value={branchName}
-              onChange={(e) => setBranchName(e.target.value)}
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button onClick={() => setShowBranchDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
-              <button
-                data-testid="tosca-commit-confirm-btn"
-                onClick={() => { setShowBranchDialog(false); toast.success(`Committed to branch: ${branchName || 'feat/tosca-migration'}`) }}
-                className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
-              >
-                Commit
-              </button>
-            </div>
-          </div>
+      <CenteredDialog
+        open={showBranchDialog}
+        onOpenChange={setShowBranchDialog}
+        title="Commit to Git"
+        width="360px"
+      >
+        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-1">Branch Name</label>
+        <input
+          data-testid="tosca-branch-name-input"
+          className="w-full px-3 py-2 bg-input border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="feat/tosca-migration-tc001"
+          value={branchName}
+          onChange={(e) => setBranchName(e.target.value)}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <button onClick={() => setShowBranchDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
+          <button
+            data-testid="tosca-commit-confirm-btn"
+            onClick={() => { setShowBranchDialog(false); toast.success(`Committed to branch: ${branchName || 'feat/tosca-migration'}`) }}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Commit
+          </button>
         </div>
-      )}
+      </CenteredDialog>
     </div>
   )
 }

@@ -9,22 +9,45 @@ export function useChatSSE() {
   const { addMessage, startStreaming, appendToken, finalizeStream, lastJobType } = useChatStore()
   const demoMode = useAppStore((s) => s.demoMode)
   const esRef = useRef(null)
+  const timerRef = useRef(null)
+  const mountedRef = useRef(true)
+
+  const cleanup = useCallback(() => {
+    mountedRef.current = false
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    if (esRef.current) {
+      esRef.current.close()
+      esRef.current = null
+    }
+  }, [])
 
   const sendMessage = useCallback(
     (content) => {
+      mountedRef.current = true
       addMessage({ role: 'user', content })
 
       if (demoMode) {
         const response = pickDemoResponse(content, lastJobType)
         startStreaming()
         let i = 0
-        const timer = setInterval(() => {
+        timerRef.current = setInterval(() => {
+          if (!mountedRef.current) {
+            clearInterval(timerRef.current)
+            timerRef.current = null
+            return
+          }
           if (i < response.length) {
             appendToken(response[i])
             i++
           } else {
-            clearInterval(timer)
-            finalizeStream([{ title: 'TD Bank QA Knowledge Base', url: '#' }])
+            clearInterval(timerRef.current)
+            timerRef.current = null
+            if (mountedRef.current) {
+              finalizeStream([{ title: 'TD Bank QA Knowledge Base', url: '#' }])
+            }
           }
         }, 12)
       } else {
@@ -34,26 +57,30 @@ export function useChatSSE() {
         api
           .post('/api/v1/chat/', { message: content })
           .then((res) => {
+            if (!mountedRef.current) return
             const sessionId = res.data.session_id
             const url = `${process.env.REACT_APP_BACKEND_URL}/api/v1/chat/stream/${sessionId}?token=${token}`
             const es = new EventSource(url)
             esRef.current = es
 
             es.onmessage = (event) => {
+              if (!mountedRef.current) { es.close(); return }
               const data = JSON.parse(event.data)
               if (data.type === 'token') appendToken(data.token)
               if (data.type === 'done') {
                 es.close()
-                finalizeStream(data.citations || [])
+                esRef.current = null
+                if (mountedRef.current) finalizeStream(data.citations || [])
               }
             }
             es.onerror = () => {
               es.close()
-              finalizeStream()
+              esRef.current = null
+              if (mountedRef.current) finalizeStream()
             }
           })
           .catch(() => {
-            finalizeStream()
+            if (mountedRef.current) finalizeStream()
           })
       }
     },
@@ -61,13 +88,17 @@ export function useChatSSE() {
   )
 
   const stopStreaming = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
     if (esRef.current) {
       esRef.current.close()
       esRef.current = null
     }
   }, [])
 
-  return { sendMessage, stopStreaming }
+  return { sendMessage, stopStreaming, cleanup }
 }
 
 function pickDemoResponse(content, lastJobType) {

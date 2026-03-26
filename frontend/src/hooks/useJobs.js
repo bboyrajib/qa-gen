@@ -3,10 +3,11 @@ import { useJobStore, useAppStore } from '@/store'
 
 export function useJobSimulator() {
   const { createJob, updateStep, setJobComplete, setJobFailed } = useJobStore()
+  const activeProjectId = useAppStore((s) => s.activeProjectId)
 
   const simulate = useCallback(
     (steps, options = {}) => {
-      const { delay = 750, type = 'demo', onComplete } = options
+      const { delay = 750, type = 'demo', onComplete, onFail, triggeredBy } = options
       const jobId = `${type}-${Date.now()}`
       createJob(jobId, type)
 
@@ -20,12 +21,24 @@ export function useJobSimulator() {
         } else {
           setJobComplete(jobId, { done: true })
           if (onComplete) onComplete(jobId)
+          // Dispatch notification
+          if (activeProjectId) {
+            import('@/store').then(({ useNotificationStore }) => {
+              useNotificationStore.getState().addNotification({
+                jobId,
+                type,
+                status: 'COMPLETE',
+                projectId: activeProjectId,
+                triggeredBy: triggeredBy || 'You',
+              })
+            })
+          }
         }
       }
       next()
       return jobId
     },
-    [createJob, updateStep, setJobComplete]
+    [createJob, updateStep, setJobComplete, activeProjectId]
   )
 
   return { simulate }

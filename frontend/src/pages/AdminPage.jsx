@@ -8,17 +8,26 @@ import {
   getFilteredRowModel, flexRender, createColumnHelper
 } from '@tanstack/react-table'
 import * as Tabs from '@radix-ui/react-tabs'
-import * as Dialog from '@radix-ui/react-dialog'
 import * as Checkbox from '@radix-ui/react-checkbox'
-import { ShieldCheck, Plus, Search, Check, ArrowLeft, Pencil, UserX } from 'lucide-react'
+import * as Switch from '@radix-ui/react-switch'
+import { ShieldCheck, Plus, Search, Check, ArrowLeft, Pencil, UserX, Layers } from 'lucide-react'
 import { toast } from 'sonner'
 import { DEMO_USERS } from '@/lib/demo-data'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 
 const ROLE_BADGE = {
   true: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   false: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
 }
+
+const ALL_MODULES = [
+  { key: 'tosca', label: 'Tosca Conversion', description: 'Convert Tosca test cases to Playwright' },
+  { key: 'test-gen', label: 'Test Generation', description: 'Generate Gherkin BDD from Jira stories' },
+  { key: 'rca', label: 'Failure RCA', description: 'AI root cause analysis for pipeline failures' },
+  { key: 'impact', label: 'Impact Analysis', description: 'Commit-level test impact and risk scoring' },
+  { key: 'regression', label: 'Regression Optimizer', description: 'Smart regression suite reduction' },
+]
 
 const colHelper = createColumnHelper()
 
@@ -33,10 +42,13 @@ export default function AdminPage() {
   const [showAddUser, setShowAddUser] = useState(false)
   const [editUser, setEditUser] = useState(null)
   const [manageAccessUser, setManageAccessUser] = useState(null)
+  const [manageModulesProject, setManageModulesProject] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [userForm, setUserForm] = useState({
     name: '', email: '', password: '', is_admin: false, project_access: []
   })
+
+  const { getProjectModules, setModuleEnabled } = useAppStore()
 
   const userColumns = useMemo(() => [
     colHelper.accessor('name', {
@@ -153,6 +165,13 @@ export default function AdminPage() {
       header: '',
       cell: (info) => (
         <div className="flex gap-2 justify-end">
+          <button
+            data-testid={`manage-modules-${info.row.original.id}`}
+            onClick={() => setManageModulesProject(info.row.original)}
+            className="text-xs px-2 py-1 border border-border rounded text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors flex items-center gap-1"
+          >
+            <Layers className="w-3 h-3" /> Modules
+          </button>
           <button
             data-testid={`manage-access-${info.row.original.id}`}
             onClick={() => setManageAccessUser(info.row.original)}
@@ -331,180 +350,222 @@ export default function AdminPage() {
       </main>
 
       {/* Add/Edit User Dialog */}
-      <Dialog.Root
+      <CenteredDialog
         open={showAddUser}
         onOpenChange={(v) => { setShowAddUser(v); if (!v) setEditUser(null) }}
+        title={editUser ? 'Edit User' : 'Add User'}
+        width="480px"
       >
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[480px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-4">
-              {editUser ? 'Edit User' : 'Add User'}
-            </Dialog.Title>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Display Name *</label>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Display Name *</label>
+              <input
+                data-testid="user-form-name"
+                className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                value={userForm.name}
+                onChange={(e) => setUserForm((f) => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email *</label>
+              <input
+                data-testid="user-form-email"
+                type="email"
+                className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                value={userForm.email}
+                onChange={(e) => setUserForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              {editUser ? 'Reset Password (leave blank to keep)' : 'Temporary Password *'}
+            </label>
+            <div className="relative mt-1">
+              <input
+                data-testid="user-form-password"
+                type={showPassword ? 'text' : 'password'}
+                className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10"
+                value={userForm.password}
+                onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs"
+              >
+                {showPassword ? 'Hide' : 'Show'}
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Role</label>
+            <div className="flex gap-4">
+              {[{ label: 'Member', value: false }, { label: 'Admin', value: true }].map((opt) => (
+                <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
                   <input
-                    data-testid="user-form-name"
-                    className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={userForm.name}
-                    onChange={(e) => setUserForm((f) => ({ ...f, name: e.target.value }))}
+                    type="radio"
+                    name="role"
+                    checked={userForm.is_admin === opt.value}
+                    onChange={() => setUserForm((f) => ({
+                      ...f,
+                      is_admin: opt.value,
+                      project_access: opt.value ? null : []
+                    }))}
+                    className="accent-td-green"
                   />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email *</label>
-                  <input
-                    data-testid="user-form-email"
-                    type="email"
-                    className="mt-1 w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={userForm.email}
-                    onChange={(e) => setUserForm((f) => ({ ...f, email: e.target.value }))}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {editUser ? 'Reset Password (leave blank to keep)' : 'Temporary Password *'}
+                  <span className="text-sm text-foreground">{opt.label}</span>
                 </label>
-                <div className="relative mt-1">
-                  <input
-                    data-testid="user-form-password"
-                    type={showPassword ? 'text' : 'password'}
-                    className="w-full px-3 py-2 bg-input border border-border rounded-md text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring pr-10"
-                    value={userForm.password}
-                    onChange={(e) => setUserForm((f) => ({ ...f, password: e.target.value }))}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs"
-                  >
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Role</label>
-                <div className="flex gap-4">
-                  {[{ label: 'Member', value: false }, { label: 'Admin', value: true }].map((opt) => (
-                    <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="role"
-                        checked={userForm.is_admin === opt.value}
-                        onChange={() => setUserForm((f) => ({
+              ))}
+            </div>
+          </div>
+          {!userForm.is_admin && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
+                Project Access
+              </label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {(projects || []).map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox.Root
+                      checked={(userForm.project_access || []).includes(p.id)}
+                      onCheckedChange={(checked) => {
+                        setUserForm((f) => ({
                           ...f,
-                          is_admin: opt.value,
-                          project_access: opt.value ? null : []
-                        }))}
-                        className="accent-td-green"
-                      />
-                      <span className="text-sm text-foreground">{opt.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {!userForm.is_admin && (
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                    Project Access
+                          project_access: checked
+                            ? [...(f.project_access || []), p.id]
+                            : (f.project_access || []).filter((id) => id !== p.id),
+                        }))
+                      }}
+                      className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center"
+                    >
+                      <Checkbox.Indicator>
+                        <Check className="w-3 h-3 text-white" />
+                      </Checkbox.Indicator>
+                    </Checkbox.Root>
+                    <span className="text-sm text-foreground">{p.name}</span>
                   </label>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {(projects || []).map((p) => (
-                      <label key={p.id} className="flex items-center gap-2 cursor-pointer">
-                        <Checkbox.Root
-                          checked={(userForm.project_access || []).includes(p.id)}
-                          onCheckedChange={(checked) => {
-                            setUserForm((f) => ({
-                              ...f,
-                              project_access: checked
-                                ? [...(f.project_access || []), p.id]
-                                : (f.project_access || []).filter((id) => id !== p.id),
-                            }))
-                          }}
-                          className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center"
-                        >
-                          <Checkbox.Indicator>
-                            <Check className="w-3 h-3 text-white" />
-                          </Checkbox.Indicator>
-                        </Checkbox.Root>
-                        <span className="text-sm text-foreground">{p.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
-
-            <div className="flex justify-end gap-2 mt-6">
-              <button
-                onClick={() => { setShowAddUser(false); setEditUser(null) }}
-                className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                data-testid="user-form-submit"
-                onClick={handleSaveUser}
-                disabled={!userForm.name || !userForm.email}
-                className="px-4 py-2 text-sm rounded-md bg-td-green text-white font-medium hover:bg-td-dark-green transition-colors disabled:opacity-50"
-              >
-                {editUser ? 'Save Changes' : 'Create User'}
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={() => { setShowAddUser(false); setEditUser(null) }}
+            className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            data-testid="user-form-submit"
+            onClick={handleSaveUser}
+            disabled={!userForm.name || !userForm.email}
+            className="px-4 py-2 text-sm rounded-md bg-td-green text-white font-medium hover:bg-td-dark-green transition-colors disabled:opacity-50"
+          >
+            {editUser ? 'Save Changes' : 'Create User'}
+          </button>
+        </div>
+      </CenteredDialog>
 
       {/* Manage Access Dialog */}
-      {manageAccessUser && (
-        <Dialog.Root open={!!manageAccessUser} onOpenChange={(v) => !v && setManageAccessUser(null)}>
-          <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-            <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[420px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-              <Dialog.Title className="text-lg font-semibold text-foreground mb-1">
-                Manage Access — {manageAccessUser.name}
-              </Dialog.Title>
-              <p className="text-sm text-muted-foreground mb-4">Toggle project access for this user</p>
-              <div className="space-y-2">
-                {(projects || []).map((p) => {
-                  const u = users.find((u) => u.id === manageAccessUser.id)
-                  const hasAccess = u?.is_admin || (u?.project_access || []).includes(p.id)
-                  return (
-                    <label key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer">
-                      <span className="text-sm text-foreground">{p.name}</span>
-                      <Checkbox.Root
-                        checked={hasAccess}
-                        disabled={u?.is_admin}
-                        onCheckedChange={(checked) => {
-                          handleProjectAccess(manageAccessUser.id, p.id, checked)
-                          toast.success(`Access ${checked ? 'granted' : 'revoked'} for ${p.name}`)
-                        }}
-                        className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center disabled:opacity-50"
-                      >
-                        <Checkbox.Indicator>
-                          <Check className="w-3 h-3 text-white" />
-                        </Checkbox.Indicator>
-                      </Checkbox.Root>
-                    </label>
-                  )
-                })}
-              </div>
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => setManageAccessUser(null)}
-                  className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+      <CenteredDialog
+        open={!!manageAccessUser}
+        onOpenChange={(v) => !v && setManageAccessUser(null)}
+        title={manageAccessUser ? `Manage Access — ${manageAccessUser.name}` : ''}
+        description="Toggle project access for this user"
+        width="420px"
+      >
+        <div className="space-y-2">
+          {(projects || []).map((p) => {
+            const u = users.find((u) => u.id === manageAccessUser?.id)
+            const hasAccess = u?.is_admin || (u?.project_access || []).includes(p.id)
+            return (
+              <label key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer">
+                <span className="text-sm text-foreground">{p.name}</span>
+                <Checkbox.Root
+                  checked={hasAccess}
+                  disabled={u?.is_admin}
+                  onCheckedChange={(checked) => {
+                    handleProjectAccess(manageAccessUser.id, p.id, checked)
+                    toast.success(`Access ${checked ? 'granted' : 'revoked'} for ${p.name}`)
+                  }}
+                  className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center disabled:opacity-50"
                 >
-                  Done
-                </button>
-              </div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
-      )}
+                  <Checkbox.Indicator>
+                    <Check className="w-3 h-3 text-white" />
+                  </Checkbox.Indicator>
+                </Checkbox.Root>
+              </label>
+            )
+          })}
+        </div>
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => setManageAccessUser(null)}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </CenteredDialog>
+
+      {/* Manage Modules Dialog */}
+      <CenteredDialog
+        open={!!manageModulesProject}
+        onOpenChange={(v) => !v && setManageModulesProject(null)}
+        title={manageModulesProject ? `Manage Modules — ${manageModulesProject.name}` : ''}
+        description="Enable or disable AI modules for this project. Disabled modules are hidden from the project sidebar."
+        width="480px"
+      >
+        {manageModulesProject && (
+          <div className="space-y-2 mt-2">
+            {ALL_MODULES.map((mod) => {
+              const modules = getProjectModules(manageModulesProject.id)
+              const enabled = modules[mod.key] !== false
+              return (
+                <div
+                  key={mod.key}
+                  className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                    enabled
+                      ? 'border-td-green/30 bg-td-green/5 dark:bg-td-green/10'
+                      : 'border-border bg-muted/20'
+                  }`}
+                >
+                  <div>
+                    <p className={`text-sm font-medium ${enabled ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {mod.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{mod.description}</p>
+                  </div>
+                  <Switch.Root
+                    data-testid={`module-toggle-${mod.key}`}
+                    checked={enabled}
+                    onCheckedChange={(checked) => {
+                      setModuleEnabled(manageModulesProject.id, mod.key, checked)
+                      toast.success(`${mod.label} ${checked ? 'enabled' : 'disabled'} for ${manageModulesProject.name}`)
+                    }}
+                    className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none data-[state=checked]:bg-td-green data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
+                  >
+                    <Switch.Thumb className="pointer-events-none block h-5 w-5 rounded-full bg-white shadow-lg ring-0 transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0.5" />
+                  </Switch.Root>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="flex justify-end mt-6">
+          <button
+            data-testid="manage-modules-done"
+            onClick={() => setManageModulesProject(null)}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Save & Close
+          </button>
+        </div>
+      </CenteredDialog>
     </div>
   )
 }

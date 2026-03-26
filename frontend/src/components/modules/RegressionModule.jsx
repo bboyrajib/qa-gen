@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useJobStore, useChatStore, useAppStore } from '@/store'
 import { useJobSimulator } from '@/hooks/useJobs'
 import StepProgress from '@/components/shared/StepProgress'
@@ -11,8 +11,9 @@ import {
 import { DEMO_REGRESSION_RESULT, DEMO_JTMF_SUITES } from '@/lib/demo-data'
 import * as Tabs from '@radix-ui/react-tabs'
 import { ChevronDown, ChevronUp, Loader2, BarChart3, RefreshCw, Download } from 'lucide-react'
-import * as Dialog from '@radix-ui/react-dialog'
+import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
+import { useLocation } from 'react-router-dom'
 
 const STEPS = ['Loading History', 'Scoring Flakiness', 'Building Vectors', 'Clustering', 'Risk Scoring', 'LLM Validation', 'Coverage Check', 'Ready']
 const colHelper = createColumnHelper()
@@ -43,7 +44,8 @@ export default function RegressionModule() {
   const [riskProfile, setRiskProfile] = useState('')
   const [riskProfileExpanded, setRiskProfileExpanded] = useState(false)
   const [currentJobId, setCurrentJobId] = useState(null)
-  const [jobDone, setJobDone] = useState(false)
+  const location = useLocation()
+  const [jobDone, setJobDone] = useState(!!location.state?.autoShow)
   const [expandedRow, setExpandedRow] = useState(null)
   const [overrides, setOverrides] = useState({})
   const [showExportDialog, setShowExportDialog] = useState(false)
@@ -402,52 +404,50 @@ export default function RegressionModule() {
       )}
 
       {/* Export Dialog */}
-      <Dialog.Root open={showExportDialog} onOpenChange={setShowExportDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[360px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-2">Export Test Plan</Dialog.Title>
-            <p className="text-sm text-muted-foreground mb-4">Choose export format</p>
-            <div className="grid grid-cols-2 gap-2">
-              {['.json', '.csv', '.xml (JTMF)', '.yaml'].map((fmt) => (
-                <button
-                  key={fmt}
-                  onClick={() => { setShowExportDialog(false); toast.success(`Exported as ${fmt}`) }}
-                  className="p-3 border border-border rounded-lg text-sm text-foreground hover:border-td-green hover:text-td-green transition-all"
-                >
-                  {fmt}
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setShowExportDialog(false)} className="mt-4 w-full py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-              Cancel
+      <CenteredDialog
+        open={showExportDialog}
+        onOpenChange={setShowExportDialog}
+        title="Export Test Plan"
+        description="Choose export format"
+        width="360px"
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {['.json', '.csv', '.xml (JTMF)', '.yaml'].map((fmt) => (
+            <button
+              key={fmt}
+              onClick={() => { setShowExportDialog(false); toast.success(`Exported as ${fmt}`) }}
+              className="p-3 border border-border rounded-lg text-sm text-foreground hover:border-td-green hover:text-td-green transition-all"
+            >
+              {fmt}
             </button>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+          ))}
+        </div>
+        <button onClick={() => setShowExportDialog(false)} className="mt-4 w-full py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+          Cancel
+        </button>
+      </CenteredDialog>
 
       {/* Inject Dialog */}
-      <Dialog.Root open={showInjectDialog} onOpenChange={setShowInjectDialog}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[400px] bg-white dark:bg-[#1A3626] rounded-xl border border-border shadow-2xl p-6 animate-fade-in">
-            <Dialog.Title className="text-lg font-semibold text-foreground mb-2">Inject into CI/CD</Dialog.Title>
-            <p className="text-sm text-muted-foreground mb-4">
-              Inject optimised suite ({r.optimized_count} tests) from {r.suite} into your pipeline.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowInjectDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
-              <button
-                data-testid="regression-inject-confirm-btn"
-                onClick={() => { setShowInjectDialog(false); toast.success('Optimised suite injected into CI/CD!') }}
-                className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
-              >
-                Confirm Injection
-              </button>
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <CenteredDialog
+        open={showInjectDialog}
+        onOpenChange={setShowInjectDialog}
+        title="Inject into CI/CD"
+        width="400px"
+      >
+        <p className="text-sm text-muted-foreground mb-4">
+          Inject optimised suite ({r.optimized_count} tests) from {r.suite} into your pipeline.
+        </p>
+        <div className="flex justify-end gap-2">
+          <button onClick={() => setShowInjectDialog(false)} className="px-4 py-2 text-sm border border-border rounded-lg hover:bg-muted transition-colors text-foreground">Cancel</button>
+          <button
+            data-testid="regression-inject-confirm-btn"
+            onClick={() => { setShowInjectDialog(false); toast.success('Optimised suite injected into CI/CD!') }}
+            className="px-4 py-2 text-sm bg-td-green text-white rounded-lg hover:bg-td-dark-green transition-colors"
+          >
+            Confirm Injection
+          </button>
+        </div>
+      </CenteredDialog>
     </div>
   )
 }
