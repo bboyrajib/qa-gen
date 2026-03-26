@@ -1,54 +1,71 @@
-import { useEffect } from "react";
-import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'sonner'
+import { useAppStore } from '@/store'
+import { isAuthenticated, getUser } from '@/lib/auth'
+import LoginPage from '@/pages/LoginPage'
+import ProjectsPage from '@/pages/ProjectsPage'
+import ProjectDashboard from '@/pages/ProjectDashboard'
+import AdminPage from '@/pages/AdminPage'
+import ProjectLayout from '@/components/layout/ProjectLayout'
+import ToscaModule from '@/components/modules/ToscaModule'
+import TestGenModule from '@/components/modules/TestGenModule'
+import RCAModule from '@/components/modules/RCAModule'
+import ImpactModule from '@/components/modules/ImpactModule'
+import RegressionModule from '@/components/modules/RegressionModule'
+import '@/App.css'
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: 1, staleTime: 30000 } },
+})
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
+function ThemeInitializer() {
+  const initTheme = useAppStore((s) => s.initTheme)
   useEffect(() => {
-    helloWorldApi();
-  }, []);
+    initTheme()
+  }, [initTheme])
+  return null
+}
 
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
-};
+function AuthGuard({ children }) {
+  if (!isAuthenticated()) return <Navigate to="/login" replace />
+  return children
+}
+
+function AdminGuard({ children }) {
+  const user = getUser()
+  if (!isAuthenticated() || !user?.is_admin) return <Navigate to="/projects" replace />
+  return children
+}
+
+function RootRedirect() {
+  return <Navigate to={isAuthenticated() ? '/projects' : '/login'} replace />
+}
 
 function App() {
   return (
-    <div className="App">
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ThemeInitializer />
         <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<AdminGuard><AdminPage /></AdminGuard>} />
+          <Route path="/projects" element={<AuthGuard><ProjectsPage /></AuthGuard>} />
+          <Route path="/projects/:projectId" element={<AuthGuard><ProjectLayout /></AuthGuard>}>
+            <Route index element={<ProjectDashboard />} />
+            <Route path="tosca" element={<ToscaModule />} />
+            <Route path="test-gen" element={<TestGenModule />} />
+            <Route path="rca" element={<RCAModule />} />
+            <Route path="impact" element={<ImpactModule />} />
+            <Route path="regression" element={<RegressionModule />} />
           </Route>
         </Routes>
+        <Toaster position="top-right" richColors />
       </BrowserRouter>
-    </div>
-  );
+    </QueryClientProvider>
+  )
 }
 
-export default App;
+export default App
