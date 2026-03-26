@@ -54,7 +54,7 @@ export default function ChatbotPanel() {
   }
 
   const handleKeyDown = (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    if (e.shiftKey && e.key === 'Enter') {
       e.preventDefault()
       handleSend()
     }
@@ -72,7 +72,7 @@ export default function ChatbotPanel() {
       className="fixed right-0 top-0 bottom-0 w-[380px] z-30 bg-white dark:bg-[#0D1F14] border-l border-border flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-border flex-shrink-0">
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-border flex-shrink-0">
         <MessageSquare className="w-4 h-4 text-td-green" />
         <span className="font-semibold text-sm text-foreground">QGenie Assistant</span>
         <span className="ml-auto text-[10px] px-2 py-0.5 bg-td-green/10 text-td-green rounded-full font-medium">RAG-powered</span>
@@ -235,7 +235,7 @@ export default function ChatbotPanel() {
             ref={textareaRef}
             data-testid="chat-input"
             className="flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground resize-none focus:outline-none min-h-[20px] max-h-[72px] scrollbar-thin"
-            placeholder="Ask a question... (Cmd+Enter to send)"
+            placeholder="Ask a question... (Shift+Enter to send)"
             rows={1}
             value={input}
             onChange={handleTextareaChange}

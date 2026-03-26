@@ -55,7 +55,7 @@ export default function Sidebar() {
       <Link
         to="/projects"
         data-testid="sidebar-home-link"
-        className="flex items-center gap-2 px-5 py-4 border-b border-black/10 dark:border-white/10 hover:bg-white/5 transition-colors group"
+        className="flex items-center gap-2 px-5 h-16 border-b border-black/10 dark:border-white/10 hover:bg-white/5 transition-colors group"
         title="Back to all projects"
       >
         <TDBankLogo size={28} className="flex-shrink-0" />

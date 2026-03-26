@@ -30,7 +30,7 @@ export default function ProjectLayout() {
         <main
           data-testid="main-content"
           className="flex-1 overflow-y-auto p-6 scrollbar-thin"
-          style={{ marginTop: '56px' }}
+          style={{ marginTop: '64px' }}
         >
           <Outlet />
         </main>
