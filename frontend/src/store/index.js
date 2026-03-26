@@ -47,6 +47,7 @@ export const useAppStore = create(
       },
 
       toggleDemo: () => set((s) => ({ demoMode: !s.demoMode })),
+      setDemoMode: (val) => set({ demoMode: val }),
       setActiveProjectId: (id) => set({ activeProjectId: id }),
 
       getProjectModules: (projectId) => {

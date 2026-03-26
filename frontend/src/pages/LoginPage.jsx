@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useAppStore } from '@/store'
 import { isAuthenticated } from '@/lib/auth'
 import { ShieldCheck, Eye, EyeOff } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -11,22 +10,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const { login, loading, error } = useAuth()
-  const demoMode = useAppStore((s) => s.demoMode)
 
   if (isAuthenticated()) return <Navigate to="/projects" replace />
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     await login(email, password)
-  }
-
-  const fillDemo = (email, pass) => {
-    setEmail(email)
-    setPassword(pass)
-    // Auto-submit with brief visual feedback delay
-    setTimeout(() => {
-      login(email, pass)
-    }, 150)
   }
 
   return (
@@ -63,6 +52,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
 
@@ -114,32 +104,6 @@ export default function LoginPage() {
               Account managed by your TCoE administrator
             </p>
           </div>
-
-          {/* Demo Credentials */}
-          {demoMode && (
-            <div className="mt-4 p-4 bg-amber-900/20 border border-amber-500/20 rounded-xl animate-fade-in">
-              <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
-                Demo Mode Active — Quick Login
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  data-testid="demo-login-admin"
-                  onClick={() => fillDemo('admin@tdbank.com', 'admin123')}
-                  className="text-xs px-3 py-1.5 bg-amber-400/10 text-amber-300 border border-amber-500/20 rounded-lg hover:bg-amber-400/20 transition-colors"
-                >
-                  Admin: admin@tdbank.com / admin123
-                </button>
-                <button
-                  data-testid="demo-login-user"
-                  onClick={() => fillDemo('user@tdbank.com', 'test123')}
-                  className="text-xs px-3 py-1.5 bg-amber-400/10 text-amber-300 border border-amber-500/20 rounded-lg hover:bg-amber-400/20 transition-colors"
-                >
-                  User: user@tdbank.com / test123
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
@@ -147,16 +111,17 @@ export default function LoginPage() {
       <div className="hidden lg:flex w-[45%] relative overflow-hidden items-center justify-center">
         <img
           src="https://images.pexels.com/photos/225769/pexels-photo-225769.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
-          alt="Abstract background"
+          alt="TD Bank abstract background"
           className="absolute inset-0 w-full h-full object-cover opacity-20"
         />
         <div className="absolute inset-0 bg-gradient-to-l from-transparent to-[#0D1F14]/80" />
         <div className="relative z-10 text-center px-8">
           <h2 className="text-3xl font-bold text-white mb-4">Enterprise QA Intelligence</h2>
           <p className="text-white/60 text-base leading-relaxed">
-            AI-powered automation for Tosca conversion, test generation, failure analysis, impact assessment, and regression optimization.
+            AI-powered automation for Tosca conversion, test generation, failure analysis,
+            impact assessment, and regression optimization.
           </p>
-          <div className="flex justify-center gap-4 mt-8">
+          <div className="flex justify-center gap-3 mt-8 flex-wrap">
             {['Tosca AI', 'Test Gen', 'RCA', 'Impact', 'Regression'].map((label) => (
               <span key={label} className="text-xs px-3 py-1.5 bg-td-green/20 text-td-mid border border-td-green/30 rounded-full">
                 {label}

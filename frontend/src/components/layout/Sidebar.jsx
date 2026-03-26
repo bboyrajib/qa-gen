@@ -48,13 +48,10 @@ export default function Sidebar() {
   return (
     <aside
       data-testid="sidebar"
-      className="fixed left-0 top-0 bottom-0 w-[240px] z-30 flex flex-col"
-      style={{ background: 'var(--sidebar-dark, #0D1F14)' }}
+      className="fixed left-0 top-0 bottom-0 w-[240px] z-30 flex flex-col bg-sidebar"
     >
-      <style>{`:root { --sidebar-dark: #0D1F14; } .dark { --sidebar-dark: #0D1F14; } :not(.dark) { --sidebar-dark: #EEF7F2; }`}</style>
-
       {/* Logo */}
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-white/10 dark:border-white/10">
+      <div className="flex items-center gap-2 px-5 py-4 border-b border-black/10 dark:border-white/10">
         <ShieldCheck className="w-6 h-6 text-td-green flex-shrink-0" />
         <div>
           <p className="font-bold text-sm leading-tight text-gray-900 dark:text-white">QGenie 2.0</p>
@@ -64,7 +61,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto scrollbar-thin">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-white/30 px-2 mb-2">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 dark:text-white/30 px-2 mb-2">
           AI Modules
         </p>
         <ul className="space-y-0.5">
@@ -96,8 +93,8 @@ export default function Sidebar() {
       </nav>
 
       {/* Recent Jobs */}
-      <div className="px-3 py-3 border-t border-white/10 dark:border-white/10">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-white/30 px-2 mb-2">
+      <div className="px-3 py-3 border-t border-black/10 dark:border-white/10">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 dark:text-white/30 px-2 mb-2">
           Recent Jobs
         </p>
         <ul className="space-y-1">

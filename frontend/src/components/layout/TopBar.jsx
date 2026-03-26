@@ -129,20 +129,22 @@ export default function TopBar() {
 
       <div className="flex-1" />
 
-      {/* Demo Mode Toggle */}
-      <button
-        data-testid="demo-mode-toggle"
-        onClick={toggleDemo}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-          demoMode
-            ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
-            : 'bg-muted text-muted-foreground border-border'
-        }`}
-        title="Toggle demo data on/off"
-      >
-        <Database className="w-3 h-3" />
-        {demoMode ? 'Demo ON' : 'Demo OFF'}
-      </button>
+      {/* Demo Mode Toggle — Admin only */}
+      {isAdmin && (
+        <button
+          data-testid="demo-mode-toggle"
+          onClick={toggleDemo}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+            demoMode
+              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+              : 'bg-muted text-muted-foreground border-border'
+          }`}
+          title="Toggle demo data on/off"
+        >
+          <Database className="w-3 h-3" />
+          {demoMode ? 'Demo ON' : 'Demo OFF'}
+        </button>
+      )}
 
       {/* Dark Mode */}
       <button
