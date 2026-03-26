@@ -21,7 +21,7 @@ export const DEMO_USERS = [
     name: 'Jamie Lee',
     role: 'admin',
     is_admin: true,
-    project_access: null,
+    project_access: [],
     is_active: true,
   },
   {

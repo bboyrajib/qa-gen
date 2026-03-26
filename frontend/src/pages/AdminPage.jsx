@@ -102,7 +102,8 @@ export default function AdminPage() {
       header: 'Projects',
       cell: (info) => {
         const access = info.getValue()
-        if (access === null) return <span className="text-xs text-td-green font-medium">All Projects</span>
+        const r = info.row.original.role || (info.row.original.is_admin ? 'admin' : 'user')
+        if (r === 'super_admin') return <span className="text-xs text-td-green font-medium">All Projects</span>
         if (!access || access.length === 0) return <span className="text-xs text-muted-foreground">None</span>
         return (
           <span className="text-xs text-muted-foreground">
@@ -219,8 +220,8 @@ export default function AdminPage() {
     const userPayload = {
       ...userForm,
       is_admin: isAdminRole,
-      // admins get null project_access (managed by created_by); users get list
-      project_access: isAdminRole ? null : (userForm.project_access || []),
+      // super_admin gets null (all projects); admin and user get explicit list
+      project_access: userForm.role === 'super_admin' ? null : (userForm.project_access || []),
     }
     if (editUser) {
       setAllUsers((prev) => prev.map((u) => u.id === editUser.id ? { ...u, ...userPayload } : u))
@@ -237,9 +238,12 @@ export default function AdminPage() {
   const handleProjectAccess = (userId, projectId, hasAccess) => {
     setAllUsers((prev) => prev.map((u) => {
       if (u.id !== userId) return u
-      if (u.is_admin) return u
+      const r = u.role || (u.is_admin ? 'admin' : 'user')
+      if (r === 'super_admin') return u  // superadmin always has all access
       const current = u.project_access || []
-      const updated = hasAccess ? [...current, projectId] : current.filter((id) => id !== projectId)
+      const updated = hasAccess
+        ? [...new Set([...current, projectId])]
+        : current.filter((id) => id !== projectId)
       return { ...u, project_access: updated }
     }))
   }
@@ -448,7 +452,7 @@ export default function AdminPage() {
                     onChange={() => setUserForm((f) => ({
                       ...f,
                       role: opt.value,
-                      project_access: (opt.value === 'admin' || opt.value === 'super_admin') ? null : [],
+                      project_access: opt.value === 'super_admin' ? null : [],
                     }))}
                     className="accent-td-green"
                   />
@@ -457,10 +461,10 @@ export default function AdminPage() {
               ))}
             </div>
           </div>
-          {userForm.role === 'user' && (
+          {(userForm.role === 'user' || (userForm.role === 'admin' && isSuperAdmin)) && (
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
-                Project Access
+                {userForm.role === 'admin' ? 'Assign Projects (in addition to projects they create)' : 'Project Access'}
               </label>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {(projects || []).map((p) => (
@@ -506,37 +510,54 @@ export default function AdminPage() {
         </div>
       </CenteredDialog>
 
-      {/* Manage Access Dialog */}
+      {/* Manage Access Dialog — shows users and their access to the selected project */}
       <CenteredDialog
         open={!!manageAccessUser}
         onOpenChange={(v) => !v && setManageAccessUser(null)}
         title={manageAccessUser ? `Manage Access — ${manageAccessUser.name}` : ''}
-        description="Toggle project access for this user"
-        width="420px"
+        description="Grant or revoke user access to this project"
+        width="440px"
       >
         <div className="space-y-2">
-          {(projects || []).map((p) => {
-            const u = users.find((u) => u.id === manageAccessUser?.id)
-            const hasAccess = u?.is_admin || (u?.project_access || []).includes(p.id)
-            return (
-              <label key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer">
-                <span className="text-sm text-foreground">{p.name}</span>
-                <Checkbox.Root
-                  checked={hasAccess}
-                  disabled={u?.is_admin}
-                  onCheckedChange={(checked) => {
-                    handleProjectAccess(manageAccessUser.id, p.id, checked)
-                    toast.success(`Access ${checked ? 'granted' : 'revoked'} for ${p.name}`)
-                  }}
-                  className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center disabled:opacity-50"
-                >
-                  <Checkbox.Indicator>
-                    <Check className="w-3 h-3 text-white" />
-                  </Checkbox.Indicator>
-                </Checkbox.Root>
-              </label>
-            )
-          })}
+          {allUsers
+            .filter((u) => {
+              const r = u.role || (u.is_admin ? 'admin' : 'user')
+              return r !== 'super_admin'
+            })
+            .map((u) => {
+              const r = u.role || (u.is_admin ? 'admin' : 'user')
+              const projectId = manageAccessUser?.id
+              const isCreator = manageAccessUser?.created_by === u.id
+              const hasAccess = isCreator || (u.project_access || []).includes(projectId)
+              // Superadmin can toggle any non-superadmin; admin can only toggle regular users
+              const canToggle = isSuperAdmin || (r === 'user' && adminProjectIds.includes(projectId))
+              return (
+                <label key={u.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-foreground">{u.name}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${ROLE_BADGE[r] || ROLE_BADGE.user}`}>
+                      {ROLE_LABEL[r] || 'Member'}
+                    </span>
+                    {isCreator && (
+                      <span className="text-xs text-muted-foreground italic">creator</span>
+                    )}
+                  </div>
+                  <Checkbox.Root
+                    checked={hasAccess}
+                    disabled={isCreator || !canToggle}
+                    onCheckedChange={(checked) => {
+                      handleProjectAccess(u.id, projectId, checked)
+                      toast.success(`Access ${checked ? 'granted to' : 'revoked from'} ${u.name}`)
+                    }}
+                    className="w-4 h-4 rounded border border-border bg-input data-[state=checked]:bg-td-green data-[state=checked]:border-td-green flex items-center justify-center disabled:opacity-50"
+                  >
+                    <Checkbox.Indicator>
+                      <Check className="w-3 h-3 text-white" />
+                    </Checkbox.Indicator>
+                  </Checkbox.Root>
+                </label>
+              )
+            })}
         </div>
         <div className="flex justify-end mt-4">
           <button

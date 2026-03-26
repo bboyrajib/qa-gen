@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useProjects, useCreateProject } from '@/hooks/useProjects'
 import { useAppStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Plus, FolderOpen, Users, Key, Calendar,
   Database, Sun, Moon, ArrowLeftRight, FlaskConical,
-  Bug, Search, BarChart3, ChevronRight
+  Bug, Search, BarChart3, ChevronRight, ShieldCheck, LogOut
 } from 'lucide-react'
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import TDBankLogo from '@/components/shared/TDBankLogo'
 import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
@@ -41,7 +42,8 @@ const MODULES = [
 
 export default function ProjectsPage() {
   const { data: projects, isLoading } = useProjects()
-  const { isAdmin, user } = useAuth()
+  const { isAdmin, isSuperAdmin, user, logout } = useAuth()
+  const initials = user?.name ? user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) : 'U'
   const { setActiveProjectId, demoMode, toggleDemo, isDark, toggleDark } = useAppStore()
   const navigate = useNavigate()
   const createProject = useCreateProject()
@@ -117,6 +119,51 @@ export default function ProjectsPage() {
           <Plus className="w-4 h-4" />
           New Project
         </button>
+
+        {/* Avatar / User Menu */}
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              data-testid="user-menu-trigger"
+              className="w-8 h-8 rounded-full bg-td-green flex items-center justify-center text-white text-xs font-semibold hover:bg-td-dark-green transition-colors"
+              title={user?.name}
+            >
+              {initials}
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              className="z-50 min-w-[200px] bg-white dark:bg-[#1A3626] rounded-lg border border-border shadow-lg p-1 animate-fade-in"
+              sideOffset={6}
+              align="end"
+            >
+              <div className="px-3 py-2 border-b border-border mb-1">
+                <p className="text-sm font-medium text-foreground">{user?.name}</p>
+                <p className="text-xs text-muted-foreground">{user?.email}</p>
+              </div>
+              {isAdmin && (
+                <DropdownMenu.Item asChild>
+                  <Link
+                    to="/admin"
+                    data-testid="admin-panel-link"
+                    className="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-muted dark:hover:bg-white/10 text-foreground outline-none"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-td-green" />
+                    Admin Panel
+                  </Link>
+                </DropdownMenu.Item>
+              )}
+              <DropdownMenu.Item
+                data-testid="sign-out-btn"
+                className="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-muted dark:hover:bg-white/10 text-destructive outline-none"
+                onSelect={logout}
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
       </header>
 
       {/* ── Main Content ─────────────────────────────────────── */}

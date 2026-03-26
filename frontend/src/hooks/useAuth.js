@@ -87,8 +87,9 @@ export function useAuth() {
     const r = user.role || (user.is_admin ? 'admin' : 'user')
     // Super admin sees all projects
     if (r === 'super_admin') return true
-    // Admin can only access projects they created
+    // Admin can access projects they created or were assigned by superadmin
     if (r === 'admin') {
+      if ((user.project_access || []).includes(id)) return true
       const project = DEMO_PROJECTS.find((p) => p.id === id)
       return project?.created_by === user.id
     }

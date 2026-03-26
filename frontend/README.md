@@ -1,70 +1,164 @@
-# Getting Started with Create React App
+# QGenie 2.0 — Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React 19 single-page application for QGenie 2.0, built with Create React App + craco.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Stack
 
-### `npm start`
+| Component | Technology |
+|-----------|-----------|
+| Framework | React 19 (Create React App + craco) |
+| Styling | Tailwind CSS 3 |
+| UI Components | Radix UI primitives + shadcn/ui |
+| State | Zustand |
+| Data fetching | React Query (TanStack Query) |
+| HTTP client | axios |
+| Code editor | Monaco Editor |
+| Charts | Recharts |
+| Tables | TanStack Table |
+| Forms | React Hook Form + Zod |
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+---
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Project Structure
 
-### `npm test`
+```
+frontend/src/
+├── App.js                         # Root router + QueryClientProvider
+├── components/
+│   ├── layout/
+│   │   ├── Sidebar.jsx            # Project nav sidebar
+│   │   ├── TopBar.jsx             # Header with user menu + notifications
+│   │   ├── ChatbotPanel.jsx       # Sliding AI chat panel (SSE stream)
+│   │   └── ProjectLayout.jsx      # Per-project layout wrapper
+│   ├── modules/
+│   │   ├── ToscaModule.jsx        # Tosca XML → Playwright conversion
+│   │   ├── TestGenModule.jsx      # Jira AC → Gherkin BDD generation
+│   │   ├── RCAModule.jsx          # Failure root cause analysis
+│   │   ├── ImpactModule.jsx       # Commit test impact analysis
+│   │   └── RegressionModule.jsx   # Regression suite optimisation
+│   └── shared/
+│       ├── CenteredDialog.jsx
+│       ├── StepProgress.jsx       # SSE step progress indicator
+│       └── JobStatusBadge.jsx
+├── hooks/
+│   ├── useAuth.js                 # Login, logout, current user
+│   ├── useJobs.js                 # Job list, job result, job SSE stream
+│   ├── useProjects.js             # Project list + CRUD
+│   └── useSSE.js                  # Generic EventSource hook
+├── lib/
+│   ├── api.js                     # Axios instance + interceptors
+│   ├── auth.js                    # Token storage helpers
+│   ├── demo-data.js               # Mock data for Demo Mode
+│   └── utils.js                   # cn(), date formatting, etc.
+├── pages/
+│   ├── LoginPage.jsx
+│   ├── ProjectDashboard.jsx
+│   ├── MyJobsPage.jsx
+│   └── AdminPage.jsx
+└── store/                         # Zustand stores
+    ├── appStore.js                # Theme, demo mode, sidebar state
+    ├── jobStore.js                # Active job + SSE events
+    ├── chatStore.js               # Chat session + messages
+    └── notificationStore.js      # Notification bell state
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Quick Start
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Prerequisites
+- Node.js >= 18
+- Yarn >= 1.22 (`npm install -g yarn`)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Install and run
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```bash
+cd frontend
+yarn install
+cp .env.example .env     # or create .env manually (see below)
+yarn start               # http://localhost:3000
+```
 
-### `npm run eject`
+### Build for production
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```bash
+yarn build               # output: build/
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Environment Variables
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Create a `frontend/.env` file:
 
-## Learn More
+```env
+REACT_APP_BACKEND_URL=http://localhost:8000
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+In production, set this to your deployed backend URL (Azure Container Apps / App Service).
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+> This is a Create React App project — only `REACT_APP_*` variables are injected at build time. Do **not** use `NEXT_PUBLIC_*` prefixes.
 
-### Code Splitting
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Docker
 
-### Analyzing the Bundle Size
+### Build and run locally
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+```bash
+docker build -t qgenie-frontend .
+docker run -p 3000:80 -e REACT_APP_BACKEND_URL=http://localhost:8000 qgenie-frontend
+```
 
-### Making a Progressive Web App
+The Dockerfile builds the React app and serves it with nginx on port 80.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Auth Flow
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+1. User submits email + password on `/login`
+2. Frontend POSTs to `POST /api/v1/auth/login` as `application/x-www-form-urlencoded`
+3. Response `access_token` is stored in `localStorage`
+4. All axios requests inject `Authorization: Bearer <token>` via an interceptor
+5. On any 401 response the interceptor clears localStorage and redirects to `/login`
 
-### Deployment
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## SSE Streaming
 
-### `npm run build` fails to minify
+The frontend opens an `EventSource` connection for both job progress and chat responses. Since `EventSource` cannot send custom headers, the JWT is passed as a query parameter:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+GET /api/v1/jobs/{job_id}/stream?token=<jwt>
+GET /api/v1/chat/stream/{session_id}?token=<jwt>
+```
+
+**Job stream events** (parsed from `event.data`):
+```json
+{"event": "step", "step": "PARSING", "status": "running", "message": "...", "partial_output": null}
+{"event": "done", "job_id": "...", "result_url": "/api/v1/jobs/.../result"}
+```
+
+**Chat stream events**:
+```json
+{"type": "token", "token": "Hello"}
+{"type": "done", "citations": [{"title": "...", "url": "..."}]}
+```
+
+---
+
+## Demo Mode
+
+Demo Mode is available to **Super Admin** accounts only (toggle in the header). When on, API calls are intercepted and return mock data from `src/lib/demo-data.js` — no backend connection required.
+
+---
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `yarn start` | Start dev server on port 3000 |
+| `yarn build` | Production build to `build/` |
+| `yarn test` | Run test suite |

@@ -8,7 +8,9 @@ function getAccessibleProjects(user) {
   if (!user) return []
   const role = user.role || (user.is_admin ? 'admin' : 'user')
   if (role === 'super_admin') return DEMO_PROJECTS
-  if (role === 'admin') return DEMO_PROJECTS.filter((p) => p.created_by === user.id)
+  if (role === 'admin') return DEMO_PROJECTS.filter(
+    (p) => p.created_by === user.id || (user.project_access || []).includes(p.id)
+  )
   // regular user
   if (user.project_access === null) return DEMO_PROJECTS
   return DEMO_PROJECTS.filter((p) => (user.project_access || []).includes(p.id))

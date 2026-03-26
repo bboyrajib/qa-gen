@@ -2,9 +2,9 @@
 
 > AI-powered test automation platform for **TD Bank Technology Centre of Excellence (TCoE)**
 
-[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://reactjs.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.x-47A248?logo=mongodb)](https://mongodb.com)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://reactjs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
+[![Azure SQL](https://img.shields.io/badge/Azure_SQL-SQLAlchemy_2.0-0078D4?logo=microsoftazure)](https://azure.microsoft.com/en-us/products/azure-sql)
 [![Tailwind](https://img.shields.io/badge/Tailwind-3.x-38BDF8?logo=tailwindcss)](https://tailwindcss.com)
 
 ---
@@ -36,38 +36,65 @@ QGenie 2.0 is a full-stack enterprise QA automation platform offering five AI-po
 | **Regression Optimizer** | Smart regression suite reduction with flakiness-aware prioritization |
 
 Additional capabilities:
-- AI chatbot panel with context-aware QA knowledge
+- AI chatbot panel with context-aware QA knowledge (RAG-backed)
 - Project-scoped job history and notification system
 - Admin panel for user/project/module management
-- Real-time SSE job progress streaming
+- Real-time SSE job progress streaming via Redis pub/sub
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────┐
-│                      Azure / Cloud                        │
-│                                                           │
-│  ┌─────────────────────┐    ┌─────────────────────────┐  │
-│  │  React 18 SPA       │    │  FastAPI Backend         │  │
-│  │  (Azure Static Web  │───▶│  (Azure App Service /   │  │
-│  │   Apps / CDN)       │    │   Container Apps)        │  │
-│  │                     │    │                           │  │
-│  │  - Tailwind CSS     │    │  - JWT Auth (OAuth2)     │  │
-│  │  - Zustand (state)  │    │  - SSE Job Streaming     │  │
-│  │  - React Query      │    │  - AI Module Endpoints   │  │
-│  │  - TanStack Table   │    │  - MongoDB ODM           │  │
-│  │  - Recharts         │    │  - OpenAI / Azure AI     │  │
-│  │  - Monaco Editor    │    │  - Datadog / Splunk      │  │
-│  │  - Radix UI         │    │  - Jira Cloud API        │  │
-│  └─────────────────────┘    └──────────┬────────────────┘  │
-│                                         │                   │
-│                              ┌──────────▼────────────────┐  │
-│                              │  Azure Cosmos DB           │  │
-│                              │  (MongoDB API)             │  │
-│                              └───────────────────────────┘  │
-└──────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                          Azure / Cloud                            │
+│                                                                   │
+│  ┌─────────────────────┐    ┌───────────────────────────────┐    │
+│  │  React 19 SPA       │    │  FastAPI Backend               │    │
+│  │  (Azure Static Web  │───▶│  (Azure Container Apps)       │    │
+│  │   Apps / CDN)       │    │                               │    │
+│  │                     │    │  - Email/password JWT (HS256) │    │
+│  │  - Tailwind CSS     │    │  - SSE via Redis pub/sub      │    │
+│  │  - Zustand (state)  │    │  - 5 AI agent pipelines       │    │
+│  │  - React Query      │    │  - Azure OpenAI GPT-4o        │    │
+│  │  - TanStack Table   │    │  - Azure AI Search (RAG)      │    │
+│  │  - Recharts         │    │  - Datadog / Splunk           │    │
+│  │  - Monaco Editor    │    │  - Jira / JTMF / Confluence   │    │
+│  │  - Radix UI         │    └──────────┬────────────────────┘    │
+│  └─────────────────────┘               │                         │
+│                              ┌─────────▼──────────────────────┐  │
+│                              │  Azure SQL Database             │  │
+│                              │  (SQLAlchemy 2.0 + pyodbc)     │  │
+│                              └────────────────────────────────┘  │
+│                              ┌─────────────────────────────────┐  │
+│                              │  Azure Redis Enterprise          │  │
+│                              │  (SSE job stream pub/sub)        │  │
+│                              └─────────────────────────────────┘  │
+│                              ┌─────────────────────────────────┐  │
+│                              │  Azure Blob Storage (ent14)      │  │
+│                              │  + Azure AI Search (ent14_index) │  │
+│                              └─────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Backend Directory Structure
+```
+backend/
+├── app/
+│   ├── main.py                    # App factory, router mounts, startup bootstrap
+│   ├── core/                      # config.py, db.py, auth.py
+│   ├── models/                    # SQLAlchemy ORM — all tables prefixed qg_
+│   ├── schemas/                   # Pydantic request/response schemas
+│   ├── api/                       # FastAPI routers (auth, admin, jobs, projects, …)
+│   ├── agents/                    # 5 AI agent pipelines
+│   ├── connectors/                # Jira, JTMF, Datadog, Splunk, Confluence
+│   ├── rag/                       # Azure AI Search pipeline
+│   ├── chatbot/                   # Streaming LLM + chat history
+│   └── services/                  # Redis SSE dispatcher, Azure Blob storage
+├── tests/
+├── Dockerfile
+├── requirements.txt
+└── .env.example
 ```
 
 ### Frontend Directory Structure
@@ -92,15 +119,24 @@ frontend/src/
 - **5 AI Modules** with step-by-step progress (SSE streaming)
 - **My Jobs** — per-project job history; click to open result, re-run with one click
 - **Notification Bell** — real-time job completion alerts + Chrome browser push notifications
-- **AI Chatbot** — context-aware QA assistant (RAG-backed)
+- **AI Chatbot** — context-aware QA assistant (RAG-backed, cites sources)
 - **Dark / Light mode** — persisted per user
 - **Monaco Editor** — syntax-highlighted code viewer for generated test files
 
 ### Admin Features
-- **User Management** — create/edit users, assign roles (Admin / Member)
-- **Project Access Control** — grant/revoke per-project access per user
-- **Module Management** — enable/disable individual AI modules per project
-- **Demo Mode** — toggle between live and demo data (admin-only; hidden from non-admins)
+
+**Super Admin** (`role: super_admin`)
+- Full platform visibility — sees all projects, all users
+- Create/edit/deactivate any user; assign any role including Super Admin
+- Grant/revoke per-project access for any user
+- Enable/disable AI modules per project
+- Demo Mode toggle (Super Admin only)
+
+**Admin** (`role: admin`)
+- Sees only projects they created plus projects explicitly assigned to them
+- Manage regular users within their own project scope
+- Enable/disable AI modules for their own projects
+- Cannot see or manage other Admins or Super Admins
 
 ---
 
@@ -108,10 +144,10 @@ frontend/src/
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Node.js | >= 18 | Use `nvm use 18` |
+| Node.js | >= 18 | Use `nvm use 18` (React 19 / CRA) |
 | Yarn | >= 1.22 | `npm install -g yarn` |
-| Python | >= 3.11 | For FastAPI backend |
-| MongoDB | >= 6.0 | Or Azure Cosmos DB (MongoDB API) |
+| Python | 3.11 | Required for backend |
+| ODBC Driver 18 | — | For Azure SQL — installed automatically in Docker |
 | Docker | >= 24 | For containerized deployment |
 
 ---
@@ -130,73 +166,103 @@ cd backend
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env            # Edit with your values
-uvicorn server:app --reload --port 8001
+cp .env.example .env            # Fill in your Azure credentials (see below)
+uvicorn app.main:app --reload --port 8000
 ```
+
+On first startup the backend will:
+- Create all `qg_*` tables in Azure SQL automatically
+- Create a `super_admin` account using `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD` if no users exist
+
+Swagger UI available at: `http://localhost:8000/docs`
 
 ### 3. Frontend setup
 ```bash
 cd frontend
 yarn install
-cp .env.example .env            # Set REACT_APP_BACKEND_URL
+cp .env.example .env            # Set REACT_APP_BACKEND_URL=http://localhost:8000
 yarn start                      # Runs on http://localhost:3000
 ```
 
 ### 4. Demo mode (no backend required)
-Log in as **Admin** (`admin@tdbank.com` / `admin123`) and ensure **Demo Mode is ON** (visible in the TopBar for admin accounts only). Non-admin accounts (`user@tdbank.com` / `test123`) always use real data.
+Log in as **Super Admin** (`admin@tdbank.com` / your bootstrap password) and ensure **Demo Mode is ON** (visible in the header for Super Admin accounts only).
 
 ---
 
 ## Environment Variables
 
 ### Backend (`backend/.env`)
+
+Copy `backend/.env.example` to `backend/.env` and fill in the values below.
+
 ```env
-# MongoDB
-MONGO_URL=mongodb://localhost:27017
-DB_NAME=qgenie
+# Azure SQL
+AZURE_SQL_CONNECTION_STRING=Driver={ODBC Driver 18 for SQL Server};Server=tcp:<server>,1433;Database=<db>;Uid=...;Pwd=...;Encrypt=yes;TrustServerCertificate=no;Connection Timeout=30;
 
-# Authentication
-JWT_SECRET=change-me-to-a-256-bit-secret
+# Azure OpenAI
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com/
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-2024-08-06-tpm
+AZURE_OPENAI_API_VERSION=2024-10-21
+
+# Azure AI Search
+AZURE_SEARCH_ENDPOINT=https://<resource>.search.windows.net
+AZURE_SEARCH_INDEX_NAME=ent14_index
+
+# Azure Blob Storage
+AZURE_BLOB_ENDPOINT_1=https://<account>.blob.core.windows.net/
+AZURE_BLOB_CONTAINER_NAME=ent14
+
+# Azure Identity (service principal — for OpenAI / Search / Blob only, NOT user login)
+AZURE_CLIENT_ID=<service-principal-client-id>
+AZURE_TENANT_ID=<tenant-id>
+AZURE_CLIENT_SECRET=<client-secret>
+
+# Redis Enterprise
+REDIS_ENDPOINT=<host>:<port>
+
+# JWT Auth (email/password — no Azure AD)
+JWT_SECRET_KEY=<run: openssl rand -hex 32>
 JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=480
+JWT_EXPIRE_MINUTES=480
 
-# AI Services
-OPENAI_API_KEY=sk-...
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
-AZURE_OPENAI_KEY=...
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+# Bootstrap super_admin (used once on first startup if qg_users is empty)
+ADMIN_BOOTSTRAP_EMAIL=admin@tdbank.com
+ADMIN_BOOTSTRAP_PASSWORD=<set a strong password>
 
-# Jira Integration
+# Integrations
 JIRA_BASE_URL=https://your-org.atlassian.net
-JIRA_TOKEN=...
 JIRA_EMAIL=your-service-account@tdbank.com
+JIRA_API_TOKEN=<jira-api-token>
 
-# Log Aggregators
-DATADOG_API_KEY=...
-DATADOG_APP_KEY=...
-SPLUNK_URL=https://splunk.tdbank.internal
-SPLUNK_TOKEN=...
+JTMF_BASE_URL=https://jtmf.tdbank.internal/api
+JTMF_API_TOKEN=<jtmf-token>
 
-# JTMF (Test Management Framework)
-JTMF_API_BASE_URL=https://jtmf.tdbank.internal/api
-JTMF_API_TOKEN=...
+DATADOG_API_KEY=<datadog-api-key>
+DATADOG_APP_KEY=<datadog-app-key>
 
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,https://qgenie.tdbank.com
+SPLUNK_BASE_URL=https://splunk.tdbank.internal
+SPLUNK_TOKEN=<splunk-token>
+
+CONFLUENCE_BASE_URL=https://your-org.atlassian.net
+CONFLUENCE_EMAIL=your-service-account@tdbank.com
+CONFLUENCE_API_TOKEN=<confluence-token>
+
+# Optional webhook HMAC validation
+WEBHOOK_SECRET=<optional>
 ```
 
 ### Frontend (`frontend/.env`)
 ```env
-# Points to the backend (with /api prefix routing)
-REACT_APP_BACKEND_URL=http://localhost:3000
+REACT_APP_BACKEND_URL=http://localhost:8000
 ```
-> In production, set to your Azure App Service / Container App URL or API Gateway URL.
+> In production, set to your Azure Container Apps / App Service URL.
 
 ---
 
 ## API Reference
 
-All endpoints require `Authorization: Bearer <JWT_TOKEN>` unless marked **Public**.
+All routes are prefixed `/api/v1/`. Protected endpoints require `Authorization: Bearer <token>`.
+The frontend axios interceptor injects this header automatically. On 401 response the frontend clears localStorage and redirects to `/login`.
 
 ---
 
@@ -204,17 +270,16 @@ All endpoints require `Authorization: Bearer <JWT_TOKEN>` unless marked **Public
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/v1/auth/login` | Public | OAuth2 password flow |
-| `POST` | `/api/v1/auth/logout` | Required | Invalidates current session |
+| `POST` | `/api/v1/auth/login` | Public | `application/x-www-form-urlencoded` — returns token + user |
 | `GET` | `/api/v1/auth/me` | Required | Returns current user profile |
-| `POST` | `/api/v1/auth/refresh` | Required | Refreshes expired JWT token |
+| `POST` | `/api/v1/auth/logout` | Required | Stateless — returns `{"message": "Logged out successfully"}` |
 
 **Login Request:**
 ```
 POST /api/v1/auth/login
 Content-Type: application/x-www-form-urlencoded
 
-username=admin%40tdbank.com&password=admin123
+username=admin%40tdbank.com&password=MyPassword
 ```
 
 **Login Response:**
@@ -223,14 +288,17 @@ username=admin%40tdbank.com&password=admin123
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
   "user": {
-    "id": "usr-001",
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "email": "admin@tdbank.com",
-    "name": "Admin User",
+    "name": "QGenie Admin",
+    "role": "super_admin",
     "is_admin": true,
     "project_access": null
   }
 }
 ```
+
+> `project_access` is `null` for `super_admin` (all projects), or a UUID array for `admin` / `user`.
 
 ---
 
@@ -238,21 +306,20 @@ username=admin%40tdbank.com&password=admin123
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/v1/projects` | Required | List accessible projects for current user |
-| `POST` | `/api/v1/projects` | Admin | Create a new project |
-| `GET` | `/api/v1/projects/{project_id}` | Required | Get project details |
-| `PUT` | `/api/v1/projects/{project_id}` | Admin | Update project metadata |
-| `DELETE` | `/api/v1/projects/{project_id}` | Admin | Delete project |
+| `GET` | `/api/v1/projects/` | Required | List accessible projects (filtered by role server-side) |
+| `GET` | `/api/v1/projects/{project_id}` | Required | Get a single project |
+| `POST` | `/api/v1/projects/` | Required | Create a new project |
 
 **Project Object:**
 ```json
 {
-  "id": "proj-001",
-  "name": "TD Retail Banking",
-  "jira_project_key": "TRB",
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+  "name": "TD Digital Banking",
   "domain_tag": "Payments",
-  "created_at": "2026-01-15T10:00:00Z",
-  "members": ["usr-001", "usr-002"]
+  "jira_project_key": "TDB",
+  "member_count": 12,
+  "created_at": "2024-09-01T10:00:00Z",
+  "created_by": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
@@ -262,79 +329,66 @@ username=admin%40tdbank.com&password=admin123
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/v1/jobs` | Required | All jobs for the current user |
-| `GET` | `/api/v1/jobs?project_id=proj-001&limit=5` | Required | Recent jobs per project |
-| `GET` | `/api/v1/jobs/{job_id}` | Required | Job status + result |
-| `DELETE` | `/api/v1/jobs/{job_id}` | Required | Cancel or delete a job |
-| `GET` | `/api/v1/jobs/{job_id}/stream?token=<JWT>` | Required | **SSE** real-time step progress |
+| `GET` | `/api/v1/jobs/` | Required | List jobs (`?project_id=&limit=`) |
+| `GET` | `/api/v1/jobs/{job_id}/result` | Required | Get job result payload |
+| `GET` | `/api/v1/jobs/{job_id}/stream?token=` | Required | SSE real-time step progress |
+| `POST` | `/api/v1/jobs/tosca-convert` | Required | Submit Tosca XML → Playwright conversion |
+| `POST` | `/api/v1/jobs/test-generation` | Required | Submit Jira AC → Gherkin BDD generation |
+| `POST` | `/api/v1/jobs/failure-rca` | Required | Submit pipeline failure for RCA |
+| `POST` | `/api/v1/jobs/impact-analysis` | Required | Submit commit diff for test impact scoring |
+| `POST` | `/api/v1/jobs/regression-optimize` | Required | Submit suite for regression optimisation |
 
 **Job Object:**
 ```json
 {
-  "id": "job-abc123",
+  "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
   "type": "tosca-convert",
   "status": "COMPLETE",
-  "project_id": "proj-001",
+  "submitted": "2024-09-01T10:00:00Z",
   "user": "Alex Johnson",
-  "submitted": "2026-02-01T14:30:00Z",
-  "completed": "2026-02-01T14:31:45Z",
-  "steps": [
-    { "name": "Validating", "status": "complete" },
-    { "name": "Generating", "status": "complete" }
-  ],
-  "result": {}
+  "project_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
 }
 ```
 
-**SSE Stream Format** (`GET /api/v1/jobs/{id}/stream?token=JWT`):
+`type` values: `tosca-convert` | `test-gen` | `rca` | `impact` | `regression`
+`status` values: `QUEUED` | `RUNNING` | `COMPLETE` | `FAILED`
+
+**Job SSE Stream** (`GET /api/v1/jobs/{id}/stream?token=<JWT>`):
 ```
-data: {"type": "step", "step": "Parsing", "status": "running"}
+data: {"event": "step", "step": "PARSING", "status": "running", "message": "Extracting steps...", "partial_output": null}
 
-data: {"type": "step", "step": "Parsing", "status": "complete"}
+data: {"event": "step", "step": "PARSING", "status": "complete", "message": "Extracted 24 IR steps", "partial_output": null}
 
-data: {"type": "done", "job_id": "job-abc123", "status": "COMPLETE"}
-
-data: {"type": "error", "message": "Connection to Datadog timed out"}
+data: {"event": "done", "job_id": "...", "result_url": "/api/v1/jobs/.../result"}
 ```
+
+> The `?token=` query param is required because the browser `EventSource` API cannot send custom headers.
 
 ---
 
 ### Tosca Conversion
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/v1/tosca/convert` | Required | Submit Tosca XML for Playwright conversion |
-
-**Request (multipart/form-data):**
-```
-file: <Tosca .xml or .zip file>     (OR use git_path below)
-git_path: "tests/tosca/checkout.xml" (optional, if no file upload)
-framework: "TypeScript" | "JavaScript"
-browser: "Chromium" | "Firefox" | "WebKit"
-base_url: "https://myapp.example.com"
-jira_id: "TRB-1482"               (optional — enriches locators via Jira ACs)
-project_id: "proj-001"
-```
-
-**Response:**
-```json
-{ "job_id": "job-tosca-001", "status": "QUEUED", "estimated_seconds": 45 }
-```
-
-**Result** (from `GET /api/v1/jobs/{job_id}`):
+**Request body** (`POST /api/v1/jobs/tosca-convert`):
 ```json
 {
-  "generated_code": "import { test, expect } from '@playwright/test';\n\ntest('Bill Payment Happy Path', async ({ page }) => {\n  ...\n});",
-  "original_xml": "<TestCase name=\"BillPayment\">...</TestCase>",
-  "quality_report": {
-    "total_steps": 24,
-    "high_confidence": 20,
-    "medium_confidence": 3,
-    "low_confidence": 1,
-    "locator_warnings": [
-      { "step": 14, "message": "XPath locator detected — consider data-testid" }
-    ]
-  }
+  "file_content": "<base64-encoded Tosca XML>",
+  "file_name": "checkout.xml",
+  "framework": "typescript",
+  "browser": "chromium",
+  "base_url": "https://myapp.example.com",
+  "jira_story_id": "TDB-1482",
+  "project_id": "3fa85f64-..."
+}
+```
+
+**Result** (from `GET /api/v1/jobs/{id}/result`):
+```json
+{
+  "total_steps": 24,
+  "converted_steps": 24,
+  "low_confidence_steps": 1,
+  "compilation_status": "success",
+  "output_blob_path": "tosca-convert/<job-id>/checkout.spec.ts"
 }
 ```
 
@@ -342,39 +396,23 @@ project_id: "proj-001"
 
 ### Test Generation
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/v1/jira/story/{issue_key}` | Required | Fetch Jira story + acceptance criteria |
-| `POST` | `/api/v1/testgen/generate` | Required | Generate Gherkin BDD from ACs |
-| `POST` | `/api/v1/testgen/jira-subtasks` | Required | Push generated test IDs as Jira sub-tasks |
-
-**Generate Request:**
+**Request body** (`POST /api/v1/jobs/test-generation`):
 ```json
 {
-  "jira_id": "TRB-1482",
-  "acceptance_criteria": [
-    "AC1: User can pay bill via saved payee",
-    "AC2: System shows confirmation number"
-  ],
-  "domain": "Payments",
+  "jira_story_id": "TDB-1482",
+  "domain_tag": "payments",
   "jtmf_suite_id": "suite-payments-001",
-  "project_id": "proj-001"
+  "project_id": "3fa85f64-..."
 }
 ```
 
 **Result:**
 ```json
 {
-  "feature_file": "Feature: TD Bill Payment\n\n  @smoke @payments\n  Scenario: Happy path bill payment\n    Given I am logged in as a retail banking customer\n    When I navigate to Bill Payment\n    ...",
-  "test_data": [
-    {
-      "id": "tc-001",
-      "scenario": "Happy path bill payment",
-      "tags": ["@smoke", "@payments"],
-      "steps": ["Given I am on the bill payment page", "When I select saved payee 'Rogers'", "..."]
-    }
-  ],
-  "jtmf_upload_url": "https://jtmf.tdbank.internal/upload/suite-payments-001"
+  "feature_file_path": "test-gen/<job-id>/TDB-1482.feature",
+  "data_file_path": "test-gen/<job-id>/TDB-1482_data.json",
+  "scenario_count": 7,
+  "coverage_gap_lines": ["AC3: Confirm fee waiver for PLT accounts"]
 }
 ```
 
@@ -382,104 +420,58 @@ project_id: "proj-001"
 
 ### Failure RCA
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/v1/rca/analyse` | Required | Submit pipeline run ID for root cause analysis |
-
-**Request:**
+**Request body** (`POST /api/v1/jobs/failure-rca`):
 ```json
 {
-  "run_id": "GH-RUN-99182",
-  "service": "payments-service",
-  "time_window": "last_1h",
-  "project_id": "proj-001"
+  "pipeline_run_id": "GH-RUN-99182",
+  "failed_test_ids": ["TC-001", "TC-042"],
+  "service_tag": "payments-service",
+  "failure_timestamp": "2026-02-01T14:28:33Z",
+  "project_id": "3fa85f64-..."
 }
 ```
 
 **Result:**
 ```json
 {
-  "classification": "CODE_DEFECT",
+  "classification": "code_defect",
   "confidence": 91,
-  "root_cause": "NullPointerException in PaymentProcessor.java:142 — missing null check on transaction reference",
-  "fix_suggestion": "Add null guard: `if (txRef == null) throw new InvalidTransactionException(...)`",
-  "evidence": [
-    {
-      "source": "Datadog",
-      "level": "ERROR",
-      "message": "NullPointerException at PaymentProcessor.java:142",
-      "timestamp": "2026-02-01T14:28:33Z"
-    },
-    {
-      "source": "Splunk",
-      "level": "WARN",
-      "message": "Transaction reference null for request ID tx-88421",
-      "timestamp": "2026-02-01T14:28:31Z"
-    }
-  ],
-  "similar_incidents": [
-    {
-      "id": "INC-2891",
-      "similarity": 94,
-      "resolution": "Added null check in PR #4421",
-      "date": "2025-10-15"
-    }
-  ],
-  "jira_created": "TRB-9921",
-  "flakiness_score": 0.08
+  "narrative": "NullPointerException in PaymentProcessor.java:142 — missing null check on transaction reference",
+  "fix_actions": ["Add null guard before accessing txRef", "Add unit test for null transaction reference"],
+  "jira_description": "...",
+  "fingerprint": "a3f8c1d9e2b7...",
+  "jira_ticket": "TDB-9921"
 }
 ```
+
+Classification values: `code_defect` | `infra_failure` | `data_issue` | `env_misconfiguration` | `flaky_test`
 
 ---
 
 ### Impact Analysis
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/v1/impact/analyse` | Required | Analyse test impact of a commit or PR |
-
-**Request:**
+**Request body** (`POST /api/v1/jobs/impact-analysis`):
 ```json
 {
   "commit_sha": "a3f8c1d9e2b7f4a1c8d3e9f2b5a6c7d4",
   "repository": "td-bank/payments-service",
+  "changed_file_paths": ["src/payments/PaymentProcessor.java"],
   "pr_id": "PR-412",
-  "project_id": "proj-001"
+  "project_id": "3fa85f64-..."
 }
 ```
 
 **Result:**
 ```json
 {
-  "commit_sha": "a3f8c1d9",
-  "repository": "td-bank/payments-service",
-  "risk_level": "HIGH",
-  "risk_score": 87,
-  "total_tests": 1247,
-  "total_recommended": 89,
-  "blast_radius": { "direct": 23, "indirect": 58, "module": 8 },
-  "changed_files": [
-    "src/payments/PaymentProcessor.java",
-    "src/payments/TransactionValidator.java"
+  "recommended_tests": [
+    {"test_id": "TC-001", "score": 100, "reason": "direct"},
+    {"test_id": "TC-087", "score": 25, "reason": "indirect"}
   ],
-  "test_plan": [
-    {
-      "test_id": "TC-001",
-      "name": "Bill Payment Happy Path",
-      "reason": "DIRECT",
-      "risk": "HIGH",
-      "suite": "suite-payments-001",
-      "estimated_duration_s": 45
-    },
-    {
-      "test_id": "TC-087",
-      "name": "Transfer Between Accounts",
-      "reason": "INDIRECT",
-      "risk": "MEDIUM",
-      "suite": "suite-core-banking-001",
-      "estimated_duration_s": 30
-    }
-  ]
+  "risk_level": "High",
+  "coverage_gaps": [],
+  "total_recommended": 89,
+  "total_full_suite": 1247
 }
 ```
 
@@ -487,75 +479,47 @@ project_id: "proj-001"
 
 ### Regression Optimizer
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/api/v1/jtmf/suites` | Required | List available JTMF test suites |
-| `POST` | `/api/v1/regression/optimise` | Required | Optimise a test suite for a run |
-| `POST` | `/api/v1/regression/inject` | Required | Inject optimised plan into CI/CD |
-
-**Optimise Request:**
+**Request body** (`POST /api/v1/jobs/regression-optimize`):
 ```json
 {
-  "suite_id": "suite-retail-banking-001",
-  "risk_profile": "BALANCED",
-  "project_id": "proj-001"
+  "jtmf_suite_id": "suite-retail-banking-001",
+  "days_history": 90,
+  "release_risk_profile": {"high_risk_domains": ["payments", "auth"]},
+  "project_id": "3fa85f64-..."
 }
 ```
-
-**Risk Profiles:** `AGGRESSIVE` (max reduction) | `BALANCED` | `CONSERVATIVE` (max safety)
 
 **Result:**
 ```json
 {
-  "suite": "TD Retail Banking Suite",
-  "original_count": 445,
-  "optimized_count": 142,
+  "optimized_tests": [
+    {"test_id": "TC-001", "score": 97.5, "decision": "include", "rationale": "..."},
+    {"test_id": "TC-099", "score": 18.0, "decision": "exclude", "rationale": "No coverage overlap, no recent failures"}
+  ],
+  "flaky_tests": [{"test_id": "TC-055", "pass_rate": 0.62, "flakiness_score": 0.38, "is_flaky": true}],
   "reduction_percent": 68.1,
-  "time_saved_hours": 6.2,
-  "estimated_run_time_hours": 2.9,
-  "decisions": [
-    {
-      "test_id": "TC-001",
-      "name": "Login Happy Path",
-      "decision": "INCLUDE",
-      "reason": "High-risk coverage area, recent failure",
-      "flakiness_score": 0.02,
-      "last_failed": "2026-01-28T09:15:00Z",
-      "tags": ["@smoke", "@auth"]
-    },
-    {
-      "test_id": "TC-099",
-      "name": "Profile Photo Upload",
-      "decision": "EXCLUDE",
-      "reason": "No code change overlap, no recent failures, low risk",
-      "flakiness_score": 0.0,
-      "last_failed": null,
-      "tags": ["@profile"]
-    }
-  ]
+  "coverage_preservation": 91.4,
+  "executive_summary": "Reduced suite by 68.1% while preserving 91.4% coverage."
 }
 ```
 
 ---
 
-### Admin
+### Jira Story
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/v1/admin/users` | Admin | List all platform users |
-| `POST` | `/api/v1/admin/users` | Admin | Create a user |
-| `PUT` | `/api/v1/admin/users/{user_id}` | Admin | Update user (name, role, project_access) |
-| `DELETE` | `/api/v1/admin/users/{user_id}` | Admin | Delete user |
-| `GET` | `/api/v1/admin/stats` | Admin | Platform usage metrics |
+| `GET` | `/api/v1/jira/story/{story_id}` | Required | Fetch story with parsed acceptance criteria |
 
-**Create User Request:**
+**Response:**
 ```json
 {
-  "name": "Jane Smith",
-  "email": "jane.smith@tdbank.com",
-  "password": "TempPass123!",
-  "is_admin": false,
-  "project_access": ["proj-001", "proj-003"]
+  "id": "TDB-1482",
+  "title": "Interac e-Transfer: Add international transfer fee validation",
+  "acceptance_criteria": [
+    "AC1: Fee calculation displayed before confirmation for amounts > $100 CAD",
+    "AC2: Fee waived for Platinum account holders (account type = PLT)"
+  ]
 }
 ```
 
@@ -565,23 +529,20 @@ project_id: "proj-001"
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/v1/chat/` | Required | Send a message; returns session ID for SSE |
-| `GET` | `/api/v1/chat/stream/{session_id}?token=<JWT>` | Required | **SSE** streaming AI response |
+| `POST` | `/api/v1/chat/` | Required | Start chat session — returns `session_id` |
+| `GET` | `/api/v1/chat/stream/{session_id}?token=` | Required | SSE streaming AI response |
 
 **Chat Request:**
 ```json
-{
-  "message": "Why did the Tosca locator for step 14 fail?",
-  "context_job_id": "job-tosca-001"
-}
+{"message": "Why did the Tosca locator for step 14 fail?", "project_id": "3fa85f64-..."}
 ```
 
 **Chat Response:**
 ```json
-{ "session_id": "chat-sess-abc123" }
+{"session_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6"}
 ```
 
-**SSE Stream** (`GET /api/v1/chat/stream/{session_id}?token=JWT`):
+**Chat SSE Stream** (`GET /api/v1/chat/stream/{session_id}?token=<JWT>`):
 ```
 data: {"type": "token", "token": "The"}
 
@@ -590,30 +551,90 @@ data: {"type": "token", "token": " XPath"}
 data: {"type": "done", "citations": [{"title": "TD QA Knowledge Base — Locator Guide", "url": "#"}]}
 ```
 
+> **Note:** Chat SSE uses `{"type": "token"/"done"}`. Job SSE uses `{"event": "step"/"done"}`. These are distinct formats.
+
 ---
 
-### Notifications
+### Feedback
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `GET` | `/api/v1/notifications?project_id=proj-001` | Required | List notifications for a project |
-| `PUT` | `/api/v1/notifications/{id}/read` | Required | Mark notification as read |
-| `PUT` | `/api/v1/notifications/read-all` | Required | Mark all notifications as read |
-| `DELETE` | `/api/v1/notifications` | Required | Clear all notifications |
+| `POST` | `/api/v1/feedback/` | Required | Submit module output feedback |
 
-**Notification Object:**
+**Request:**
 ```json
 {
-  "id": "notif-001",
-  "job_id": "job-abc123",
-  "type": "tosca-convert",
-  "status": "COMPLETE",
-  "project_id": "proj-001",
-  "triggered_by": "Alex Johnson",
-  "timestamp": "2026-02-01T14:31:45Z",
-  "read": false
+  "job_id": "3fa85f64-...",
+  "module_type": "tosca",
+  "rating": 4,
+  "thumbs": "up",
+  "correction": "The selector for the submit button was wrong"
 }
 ```
+
+`module_type` values: `tosca` | `test-gen` | `rca` | `impact` | `regression`
+
+---
+
+### Admin
+
+> All `/admin/*` endpoints require `is_admin: true`.
+
+#### User Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/admin/users` | List all users |
+| `POST` | `/api/v1/admin/users` | Create a user |
+| `PATCH` | `/api/v1/admin/users/{user_id}` | Update role, password, status, access |
+| `DELETE` | `/api/v1/admin/users/{user_id}` | Deactivate a user |
+
+#### Project Access
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v1/admin/users/{user_id}/projects/{project_id}` | Grant project access |
+| `DELETE` | `/api/v1/admin/users/{user_id}/projects/{project_id}` | Revoke project access |
+
+#### Module Management
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/v1/admin/projects/{project_id}/modules` | Get enabled modules |
+| `PATCH` | `/api/v1/admin/projects/{project_id}/modules` | Set enabled modules |
+
+**Set modules request:**
+```json
+{"enabled_modules": ["tosca_convert", "test_generation"]}
+```
+Pass `null` to re-enable all modules.
+
+Valid backend module keys: `tosca_convert` | `test_generation` | `failure_rca` | `impact_analysis` | `regression_opt`
+
+---
+
+### Webhooks
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/api/v1/webhooks/cicd-failure` | HMAC signature | CI/CD pipeline failure → auto RCA job |
+| `POST` | `/api/v1/webhooks/pr-commit` | HMAC signature | PR commit push → auto impact analysis job |
+
+Signature validation uses `X-Webhook-Signature: sha256=<hmac>` header with `WEBHOOK_SECRET`.
+
+---
+
+## Module Key Mapping Reference
+
+The frontend AdminPage uses short keys. The backend stores full keys in `qg_projects.enabled_modules`.
+
+| Frontend key | Backend module key | Job `type` value |
+|---|---|---|
+| `tosca` | `tosca_convert` | `tosca-convert` |
+| `test-gen` | `test_generation` | `test-gen` |
+| `rca` | `failure_rca` | `rca` |
+| `impact` | `impact_analysis` | `impact` |
+| `regression` | `regression_opt` | `regression` |
 
 ---
 
@@ -621,52 +642,25 @@ data: {"type": "done", "citations": [{"title": "TD QA Knowledge Base — Locator
 
 ### Option A — Recommended: Azure Container Apps
 
-Fully managed, auto-scaling, production-grade deployment.
-
-#### Step 1: Set up Azure resources
-
 ```bash
-# Variables
 RG="rg-qgenie-prod"
 LOCATION="canadacentral"
 ACR="acrqgenieprod"
-COSMOS="cosmos-qgenie-prod"
 CAE="env-qgenie-prod"
 
-# Resource group
+# Resource group + ACR
 az group create --name $RG --location $LOCATION
-
-# Azure Container Registry
 az acr create --name $ACR --resource-group $RG --sku Standard --admin-enabled true
-
-# Azure Cosmos DB (MongoDB API — Serverless)
-az cosmosdb create --name $COSMOS --resource-group $RG \
-  --kind MongoDB --server-version 6.0 \
-  --capabilities EnableServerless
-
-# Get Cosmos connection string
-COSMOS_CONN=$(az cosmosdb keys list --name $COSMOS --resource-group $RG \
-  --type connection-strings --query "connectionStrings[0].connectionString" -o tsv)
 
 # Container Apps Environment
 az containerapp env create --name $CAE --resource-group $RG --location $LOCATION
 ```
 
-#### Step 2: Build and push Docker images
-
 ```bash
-# Build backend image in ACR (no local Docker needed)
-az acr build --registry $ACR \
-  --image qgenie-backend:latest ./backend
+# Build and push backend image
+az acr build --registry $ACR --image qgenie-backend:latest ./backend
 
-# Build frontend image in ACR
-az acr build --registry $ACR \
-  --image qgenie-frontend:latest ./frontend
-```
-
-#### Step 3: Deploy backend Container App
-
-```bash
+# Deploy
 ACR_PASSWORD=$(az acr credential show --name $ACR --query "passwords[0].value" -o tsv)
 
 az containerapp create \
@@ -677,211 +671,85 @@ az containerapp create \
   --registry-server $ACR.azurecr.io \
   --registry-username $ACR \
   --registry-password $ACR_PASSWORD \
-  --target-port 8001 \
+  --target-port 8000 \
   --ingress external \
   --min-replicas 1 \
   --max-replicas 10 \
   --cpu 1.0 --memory 2.0Gi \
   --env-vars \
-    MONGO_URL="$COSMOS_CONN" \
-    DB_NAME="qgenie" \
-    JWT_SECRET="$(openssl rand -hex 32)" \
-    OPENAI_API_KEY="sk-..." \
-    ALLOWED_ORIGINS="https://qgenie.tdbank.com"
+    AZURE_SQL_CONNECTION_STRING="<connection-string>" \
+    JWT_SECRET_KEY="$(openssl rand -hex 32)" \
+    ADMIN_BOOTSTRAP_EMAIL="admin@tdbank.com" \
+    ADMIN_BOOTSTRAP_PASSWORD="<strong-password>" \
+    AZURE_OPENAI_ENDPOINT="<endpoint>" \
+    AZURE_CLIENT_ID="<client-id>" \
+    AZURE_TENANT_ID="<tenant-id>" \
+    AZURE_CLIENT_SECRET="<client-secret>"
 
-# Get the backend URL
 BACKEND_URL=$(az containerapp show --name qgenie-backend --resource-group $RG \
   --query "properties.configuration.ingress.fqdn" -o tsv)
 echo "Backend: https://$BACKEND_URL"
 ```
 
-#### Step 4: Deploy frontend to Azure Static Web Apps
-
 ```bash
-# Create Static Web App linked to your GitHub repo
-az staticwebapp create \
+# Build and deploy frontend
+az acr build --registry $ACR --image qgenie-frontend:latest ./frontend
+
+az containerapp create \
   --name qgenie-frontend \
   --resource-group $RG \
-  --source https://github.com/td-bank/qgenie-2.0 \
-  --branch main \
-  --app-location "/frontend" \
-  --output-location "build" \
-  --login-with-github
-
-# Set the backend URL environment variable
-az staticwebapp appsettings set \
-  --name qgenie-frontend \
-  --resource-group $RG \
-  --setting-names \
-    REACT_APP_BACKEND_URL="https://$BACKEND_URL"
-
-echo "Frontend deployed. Configure custom domain in Azure Portal."
-```
-
----
-
-### Option B — Simple: Azure App Service
-
-For dev/staging or non-containerised deployment.
-
-```bash
-RG="rg-qgenie-dev"
-LOCATION="canadacentral"
-
-az group create --name $RG --location $LOCATION
-
-# App Service Plan (Linux B2)
-az appservice plan create \
-  --name plan-qgenie \
-  --resource-group $RG \
-  --is-linux --sku B2
-
-# Backend Web App
-az webapp create \
-  --name qgenie-api-dev \
-  --resource-group $RG \
-  --plan plan-qgenie \
-  --runtime "PYTHON|3.11"
-
-az webapp config set \
-  --name qgenie-api-dev \
-  --resource-group $RG \
-  --startup-file "uvicorn server:app --host 0.0.0.0 --port 8000"
-
-az webapp config appsettings set \
-  --name qgenie-api-dev \
-  --resource-group $RG \
-  --settings \
-    MONGO_URL="<cosmos-or-atlas-connection-string>" \
-    DB_NAME="qgenie" \
-    JWT_SECRET="<secret>" \
-    OPENAI_API_KEY="<key>" \
-    ALLOWED_ORIGINS="https://qgenie-dev.tdbank.com"
-
-# Deploy backend code
-cd backend && zip -r ../backend.zip . && cd ..
-az webapp deploy \
-  --name qgenie-api-dev \
-  --resource-group $RG \
-  --src-path backend.zip
-
-# Frontend — build and deploy to Azure Blob Static Site
-cd frontend
-REACT_APP_BACKEND_URL=https://qgenie-api-dev.azurewebsites.net yarn build
-az storage blob upload-batch \
-  --account-name <storage-account-name> \
-  --destination '$web' \
-  --source build/ \
-  --overwrite
-```
-
----
-
-### CI/CD with GitHub Actions
-
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy QGenie 2.0
-
-on:
-  push:
-    branches: [main]
-
-env:
-  ACR_NAME: acrqgenieprod
-  RG: rg-qgenie-prod
-
-jobs:
-  deploy-backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-      - name: Build and push backend image
-        run: |
-          az acr build \
-            --registry $ACR_NAME \
-            --image qgenie-backend:${{ github.sha }} \
-            ./backend
-      - name: Update Container App
-        run: |
-          az containerapp update \
-            --name qgenie-backend \
-            --resource-group $RG \
-            --image $ACR_NAME.azurecr.io/qgenie-backend:${{ github.sha }}
-
-  deploy-frontend:
-    runs-on: ubuntu-latest
-    needs: deploy-backend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install and build frontend
-        working-directory: ./frontend
-        env:
-          REACT_APP_BACKEND_URL: ${{ secrets.BACKEND_URL }}
-        run: yarn install && yarn build
-      - name: Deploy to Static Web Apps
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_SWA_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: upload
-          app_location: /frontend
-          output_location: build
-          skip_app_build: true
+  --environment $CAE \
+  --image $ACR.azurecr.io/qgenie-frontend:latest \
+  --registry-server $ACR.azurecr.io \
+  --registry-username $ACR \
+  --registry-password $ACR_PASSWORD \
+  --target-port 3000 \
+  --ingress external \
+  --env-vars REACT_APP_BACKEND_URL="https://$BACKEND_URL"
 ```
 
 ---
 
 ## Admin Guide
 
-### Demo Mode (Admin-only)
-- The **Demo Mode** toggle is visible only to admin users in the TopBar
-- **Demo ON**: All 5 modules, projects list, and job history use pre-seeded sample data — no backend calls are made
-- **Demo OFF**: All data comes from the live backend. If the backend is unreachable, empty states will be shown
-- Non-admin users always operate in live mode (demo is force-disabled on their login)
+### First Login
 
-### Module Management
-1. Log in as admin → **Admin Panel** (user menu, top-right)
-2. Go to the **Projects** tab
-3. Click the **Modules** button on any project
-4. Toggle each AI module ON/OFF using the switches
-5. Disabled modules are immediately hidden from that project's Sidebar for all users
+1. Start the backend — it will create the bootstrap `super_admin` on first startup
+2. Log in at `/login` with `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD`
+3. Go to **Admin Panel** → **Users** → create your real admin accounts
+4. Go to **Admin Panel** → **Projects** → create projects and assign users
 
-### User Management
-1. Admin Panel → **Users** tab → **Add User**
-2. Set role: **Admin** (full platform access) or **Member** (project-scoped)
-3. For Members: check the specific projects they can access
-4. Use **Manage Access** button on the Projects tab to grant/revoke project access to existing users
+### Role Summary
+
+| Role | `is_admin` | Project access | Module management |
+|------|-----------|----------------|-------------------|
+| `super_admin` | true | All projects (`project_access: null`) | All projects |
+| `admin` | true | Projects in `project_access` array | Own projects only |
+| `user` | false | Projects in `project_access` array | None |
+
+### Enabling / Disabling Modules per Project
+
+`PATCH /api/v1/admin/projects/{id}/modules` with `{"enabled_modules": ["tosca_convert", "test_generation"]}`.
+Pass `null` to re-enable all five modules. An empty array `[]` disables all modules.
 
 ---
 
 ## Troubleshooting
 
-| Symptom | Likely Cause | Fix |
-|---------|-------------|-----|
-| Login fails — "Authentication failed" | Backend not running, or wrong credentials | Start backend; use demo credentials (`admin@tdbank.com / admin123`) in demo mode |
-| Modules show no data / empty state | Demo OFF and backend unreachable | Enable Demo Mode (admin), or start backend |
-| SSE streaming does not work | CORS misconfiguration | Add backend URL to `ALLOWED_ORIGINS` in `.env`; check `/api` prefix routing |
-| Demo Mode toggle not visible | Logged in as non-admin | Log in with `admin@tdbank.com` — only admins see the toggle |
-| Sidebar stays white in dark mode | Stale CSS cache | Hard refresh: `Ctrl+Shift+R` / `Cmd+Shift+R` |
-| Notifications missing | No project selected | Select a project from the TopBar dropdown |
-| Browser push notifications not firing | Browser permission not granted | Click the Bell icon once — browser will prompt for permission |
-| "My Jobs" page is empty | No jobs run in current session + Demo OFF | Run any module, or enable Demo Mode |
+**`pyodbc` / SQL connection fails**
+Ensure ODBC Driver 18 for SQL Server is installed. On macOS: `brew install msodbcsql18`. In Docker it's installed automatically.
 
----
+**Redis connection refused**
+Check `REDIS_ENDPOINT` includes the port (e.g. `host:10000`). Azure Redis Enterprise uses TLS — the job runner connects with `rediss://`.
 
-## Security Notes
+**Azure OpenAI 401**
+Verify `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_CLIENT_SECRET` belong to a service principal with **Cognitive Services OpenAI User** role on the Azure OpenAI resource.
 
-- JWT tokens expire after 8 hours (configure via `ACCESS_TOKEN_EXPIRE_MINUTES`)
-- All secrets must be environment variables — **never commit `.env` to Git**
-- Demo credentials (`admin123`, `test123`) must be **disabled in production** — add an `ALLOW_DEMO_AUTH=false` flag to your backend
-- For TD Bank production: integrate with **Azure Entra ID (AD)** SSO via OIDC — contact TCoE Security
-- Use **Azure Key Vault** for all secrets in production Container Apps (reference via `secretRef`)
-- Enable **Azure DDoS Protection** and **WAF** on your API ingress in production
+**SSE stream disconnects immediately**
+Ensure there is no reverse proxy (nginx, Azure Front Door) buffering the response. Set `X-Accel-Buffering: no` in proxy config.
 
----
+**Tables not created on startup**
+`create_tables()` runs `Base.metadata.create_all()`. All models must be imported before this is called — they are imported via `app/models/__init__.py`. Check that `__init__.py` imports all model classes.
 
-*QGenie 2.0 — TD Bank Technology Centre of Excellence | Confidential and Proprietary*
+**Bootstrap admin not created**
+The bootstrap only runs if `qg_users` table is empty. If you need to reset, truncate `qg_users` in Azure SQL and restart the backend.
