@@ -18,6 +18,12 @@ export default function LoginPage() {
     await login(email, password)
   }
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && email && password && !loading) {
+      handleSubmit(e)
+    }
+  }
+
   return (
     <div className="min-h-screen flex bg-[#0D1F14]">
       {/* Left: Login Form */}
@@ -51,6 +57,7 @@ export default function LoginPage() {
                   placeholder="you@tdbank.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   required
                   autoFocus
                 />
@@ -68,6 +75,7 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     required
                   />
                   <button

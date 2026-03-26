@@ -50,14 +50,19 @@ export default function Sidebar() {
       data-testid="sidebar"
       className="fixed left-0 top-0 bottom-0 w-[240px] z-30 flex flex-col bg-sidebar"
     >
-      {/* Logo */}
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-black/10 dark:border-white/10">
+      {/* Logo — click to return to project list */}
+      <Link
+        to="/projects"
+        data-testid="sidebar-home-link"
+        className="flex items-center gap-2 px-5 py-4 border-b border-black/10 dark:border-white/10 hover:bg-white/5 transition-colors group"
+        title="Back to all projects"
+      >
         <ShieldCheck className="w-6 h-6 text-td-green flex-shrink-0" />
         <div>
-          <p className="font-bold text-sm leading-tight text-gray-900 dark:text-white">QGenie 2.0</p>
+          <p className="font-bold text-sm leading-tight text-gray-900 dark:text-white group-hover:text-td-green transition-colors">QGenie 2.0</p>
           <p className="text-[10px] text-gray-500 dark:text-white/50 leading-tight">TD Bank TCoE</p>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto scrollbar-thin">
