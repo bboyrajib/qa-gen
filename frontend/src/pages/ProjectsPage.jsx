@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useProjects, useCreateProject } from '@/hooks/useProjects'
 import { useAppStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
-import { ShieldCheck, Plus, FolderOpen, Users, Tag, Key, Calendar } from 'lucide-react'
+import { ShieldCheck, Plus, FolderOpen, Users, Tag, Key, Calendar, Database } from 'lucide-react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -21,7 +21,7 @@ const DOMAIN_COLORS = {
 export default function ProjectsPage() {
   const { data: projects, isLoading } = useProjects()
   const { isAdmin } = useAuth()
-  const { setActiveProjectId } = useAppStore()
+  const { setActiveProjectId, demoMode, toggleDemo } = useAppStore()
   const navigate = useNavigate()
   const createProject = useCreateProject()
   const [showCreate, setShowCreate] = useState(false)
@@ -56,6 +56,21 @@ export default function ProjectsPage() {
           <span className="text-sm text-muted-foreground">Projects</span>
         </div>
         <div className="flex-1" />
+        {isAdmin && (
+          <button
+            data-testid="demo-mode-toggle"
+            onClick={toggleDemo}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all mr-2 ${
+              demoMode
+                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800'
+                : 'bg-muted text-muted-foreground border-border'
+            }`}
+            title="Toggle demo data on/off"
+          >
+            <Database className="w-3 h-3" />
+            {demoMode ? 'Demo ON' : 'Demo OFF'}
+          </button>
+        )}
         <button
           data-testid="create-project-btn"
           onClick={() => setShowCreate(true)}
