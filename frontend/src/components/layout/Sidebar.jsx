@@ -3,8 +3,9 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAllRecentJobs } from '@/hooks/useJobs'
 import { useAppStore } from '@/store'
 import JobStatusBadge from '@/components/shared/JobStatusBadge'
+import TDBankLogo from '@/components/shared/TDBankLogo'
 import {
-  ShieldCheck, LayoutDashboard, ArrowLeftRight, FlaskConical,
+  LayoutDashboard, ArrowLeftRight, FlaskConical,
   Bug, Search, BarChart3, ChevronRight, Briefcase
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
@@ -57,7 +58,7 @@ export default function Sidebar() {
         className="flex items-center gap-2 px-5 py-4 border-b border-black/10 dark:border-white/10 hover:bg-white/5 transition-colors group"
         title="Back to all projects"
       >
-        <ShieldCheck className="w-6 h-6 text-td-green flex-shrink-0" />
+        <TDBankLogo size={28} className="flex-shrink-0" />
         <div>
           <p className="font-bold text-sm leading-tight text-gray-900 dark:text-white group-hover:text-td-green transition-colors">QGenie 2.0</p>
           <p className="text-[10px] text-gray-500 dark:text-white/50 leading-tight">TD Bank TCoE</p>

@@ -11,6 +11,7 @@ import * as Tabs from '@radix-ui/react-tabs'
 import * as Checkbox from '@radix-ui/react-checkbox'
 import * as Switch from '@radix-ui/react-switch'
 import { ShieldCheck, Plus, Search, Check, ArrowLeft, Pencil, UserX, Layers } from 'lucide-react'
+import TDBankLogo from '@/components/shared/TDBankLogo'
 import { toast } from 'sonner'
 import { DEMO_USERS } from '@/lib/demo-data'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -229,7 +230,7 @@ export default function AdminPage() {
           <ArrowLeft className="w-4 h-4" />
         </Link>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-td-green" />
+          <TDBankLogo size={24} />
           <span className="font-bold text-foreground">QGenie 2.0</span>
           <span className="text-muted-foreground">/</span>
           <span className="text-sm text-foreground font-medium">Admin Panel</span>

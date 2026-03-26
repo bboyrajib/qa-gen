@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useProjects, useCreateProject } from '@/hooks/useProjects'
 import { useAppStore } from '@/store'
 import { useAuth } from '@/hooks/useAuth'
-import { ShieldCheck, Plus, FolderOpen, Users, Tag, Key, Calendar, Database } from 'lucide-react'
+import { ShieldCheck, Plus, FolderOpen, Users, Tag, Key, Calendar, Database, Sun, Moon } from 'lucide-react'
+import TDBankLogo from '@/components/shared/TDBankLogo'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
@@ -21,7 +22,7 @@ const DOMAIN_COLORS = {
 export default function ProjectsPage() {
   const { data: projects, isLoading } = useProjects()
   const { isAdmin } = useAuth()
-  const { setActiveProjectId, demoMode, toggleDemo } = useAppStore()
+  const { setActiveProjectId, demoMode, toggleDemo, isDark, toggleDark } = useAppStore()
   const navigate = useNavigate()
   const createProject = useCreateProject()
   const [showCreate, setShowCreate] = useState(false)
@@ -50,7 +51,7 @@ export default function ProjectsPage() {
       {/* Standalone TopBar for Projects page */}
       <header className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-[#0D1F14] border-b border-border flex items-center px-6 gap-4" style={{ height: '56px' }}>
         <div className="flex items-center gap-2">
-          <ShieldCheck className="w-5 h-5 text-td-green" />
+          <TDBankLogo size={28} />
           <span className="font-bold text-foreground">QGenie 2.0</span>
           <span className="text-muted-foreground text-sm">/</span>
           <span className="text-sm text-muted-foreground">Projects</span>
@@ -71,6 +72,14 @@ export default function ProjectsPage() {
             {demoMode ? 'Demo ON' : 'Demo OFF'}
           </button>
         )}
+        <button
+          data-testid="dark-mode-toggle-projects"
+          onClick={toggleDark}
+          className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors mr-2"
+          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
         <button
           data-testid="create-project-btn"
           onClick={() => setShowCreate(true)}

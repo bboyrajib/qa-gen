@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { isAuthenticated } from '@/lib/auth'
-import { ShieldCheck, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
+import TDBankLogo from '@/components/shared/TDBankLogo'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -31,9 +32,9 @@ export default function LoginPage() {
         <div className="w-full max-w-md animate-fade-in">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-xl bg-td-green flex items-center justify-center">
-              <ShieldCheck className="w-6 h-6 text-white" />
-            </div>
+            <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
+                <TDBankLogo size={40} />
+              </div>
             <div>
               <h1 className="text-xl font-bold text-white">QGenie 2.0</h1>
               <p className="text-xs text-white/50">TD Bank Technology Centre of Excellence</p>
