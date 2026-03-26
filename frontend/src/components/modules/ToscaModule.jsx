@@ -68,6 +68,25 @@ export default function ToscaModule() {
     setCurrentJobId(jobId)
   }
 
+  const handleRerun = () => {
+    setJobDone(false)
+    setCurrentJobId(null)
+    const jobId = simulate(STEPS, {
+      type: 'tosca',
+      delay: 700,
+      onComplete: () => { setJobDone(true); setLastJobType('tosca'); toast.success('Re-run complete!') },
+    })
+    setCurrentJobId(jobId)
+  }
+
+  useEffect(() => {
+    if (location.state?.rerun && demoMode) {
+      window.history.replaceState({}, document.title)
+      toast.info('Re-running job with demo parameters...')
+      setTimeout(() => handleRerun(), 400)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleJiraLookup = async () => {
     if (!jiraId) return
     if (demoMode) {
@@ -278,6 +297,13 @@ export default function ToscaModule() {
                     <span className="text-xs font-semibold text-td-green">Generated (Playwright TS)</span>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      data-testid="tosca-rerun-btn"
+                      onClick={handleRerun}
+                      className="text-xs px-3 py-1 border border-border rounded text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Re-run
+                    </button>
                     <a
                       data-testid="tosca-download-btn"
                       href={`data:text/typescript;charset=utf-8,${encodeURIComponent(DEMO_TOSCA_GENERATED)}`}

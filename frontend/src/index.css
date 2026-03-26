@@ -32,6 +32,7 @@
     --chart-5: 0 72% 55%;
     --radius: 0.5rem;
     --sidebar: 148 44% 93%;
+    --topbar: 0 0% 100%;
   }
 
   .dark {
@@ -60,6 +61,7 @@
     --chart-4: 43 74% 65%;
     --chart-5: 0 72% 60%;
     --sidebar: 138 44% 9%;
+    --topbar: 138 44% 9%;
   }
 }
 
@@ -88,6 +90,10 @@
 }
 
 @layer utilities {
+  .bg-topbar {
+    background-color: hsl(var(--topbar));
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;

@@ -9,7 +9,7 @@ import {
   getFilteredRowModel, flexRender, createColumnHelper
 } from '@tanstack/react-table'
 import { DEMO_IMPACT_RESULT } from '@/lib/demo-data'
-import { ChevronDown, ChevronUp, Loader2, Search, GitBranch } from 'lucide-react'
+import { ChevronDown, ChevronUp, Loader2, Search, GitBranch, RefreshCw } from 'lucide-react'
 import { CenteredDialog } from '@/components/shared/CenteredDialog'
 import { toast } from 'sonner'
 import { useLocation } from 'react-router-dom'
@@ -41,6 +41,7 @@ export default function ImpactModule() {
   const [reasonFilter, setReasonFilter] = useState('ALL')
   const [selectedRows, setSelectedRows] = useState({})
 
+  const demoMode = useAppStore((s) => s.demoMode)
   const { jobs } = useJobStore()
   const { simulate } = useJobSimulator()
   const { setLastJobType } = useChatStore()
@@ -57,6 +58,25 @@ export default function ImpactModule() {
     })
     setCurrentJobId(jobId)
   }
+
+  const handleRerun = () => {
+    setJobDone(false)
+    setCurrentJobId(null)
+    const jobId = simulate(STEPS, {
+      type: 'impact',
+      delay: 700,
+      onComplete: () => { setJobDone(true); setLastJobType('impact'); toast.success('Re-run complete!') },
+    })
+    setCurrentJobId(jobId)
+  }
+
+  useEffect(() => {
+    if (location.state?.rerun && demoMode) {
+      window.history.replaceState({}, document.title)
+      toast.info('Re-running job with demo parameters...')
+      setTimeout(() => handleRerun(), 400)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = DEMO_IMPACT_RESULT
   const risk = RISK_CONFIG[r.risk_level]
@@ -241,7 +261,14 @@ export default function ImpactModule() {
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
               <span className="text-sm font-semibold text-foreground">Test Execution Plan</span>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
+                <button
+                  data-testid="impact-rerun-btn"
+                  onClick={handleRerun}
+                  className="text-xs px-3 py-1 border border-border rounded text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors flex items-center gap-1"
+                >
+                  <RefreshCw className="w-3 h-3" /> Re-run
+                </button>
                 {['ALL', 'DIRECT', 'INDIRECT', 'MODULE'].map((f) => (
                   <button
                     key={f}

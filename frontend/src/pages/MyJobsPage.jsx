@@ -8,7 +8,7 @@ import {
 } from '@tanstack/react-table'
 import {
   Briefcase, CheckCircle2, AlertCircle, Clock, Loader2,
-  ArrowUpDown, ExternalLink
+  ArrowUpDown, ExternalLink, Play
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
 
@@ -124,24 +124,35 @@ export default function MyJobsPage() {
       ),
     }),
     colHelper.display({
-      id: 'open',
+      id: 'actions',
       header: '',
       cell: (info) => {
         const job = info.row.original
         const path = MODULE_PATHS[job.type]
         if (!path) return null
         return (
-          <button
-            data-testid={`open-job-${job.id}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              const p = MODULE_PATHS[job.type]
-              if (p) navigate(`/projects/${projectId}/${p}`, { state: { autoShow: job.status === 'COMPLETE' } })
-            }}
-            className="flex items-center gap-1 text-xs text-td-green hover:text-td-dark-green transition-colors font-medium"
-          >
-            Open <ExternalLink className="w-3 h-3" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              data-testid={`open-job-${job.id}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/projects/${projectId}/${path}`, { state: { autoShow: job.status === 'COMPLETE' } })
+              }}
+              className="flex items-center gap-1 text-xs text-td-green hover:text-td-dark-green transition-colors font-medium"
+            >
+              Open <ExternalLink className="w-3 h-3" />
+            </button>
+            <button
+              data-testid={`rerun-job-${job.id}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                navigate(`/projects/${projectId}/${path}`, { state: { rerun: true } })
+              }}
+              className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors font-medium"
+            >
+              <Play className="w-3 h-3" /> Re-run
+            </button>
+          </div>
         )
       },
     }),

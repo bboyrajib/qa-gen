@@ -71,6 +71,25 @@ export default function TestGenModule() {
     setCurrentJobId(jobId)
   }
 
+  const handleRerun = () => {
+    setJobDone(false)
+    setCurrentJobId(null)
+    const jobId = simulate(STEPS, {
+      type: 'test-gen',
+      delay: 700,
+      onComplete: () => { setJobDone(true); setLastJobType('test-gen'); toast.success('Re-run complete!') },
+    })
+    setCurrentJobId(jobId)
+  }
+
+  useEffect(() => {
+    if (location.state?.rerun && demoMode) {
+      window.history.replaceState({}, document.title)
+      toast.info('Re-running job with demo parameters...')
+      setTimeout(() => handleRerun(), 400)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const columns = [
     colHelper.accessor('scenario', { header: 'Scenario', cell: (i) => <span className="font-medium text-foreground text-xs">{i.getValue()}</span> }),
     colHelper.accessor('amount', {
@@ -232,6 +251,13 @@ export default function TestGenModule() {
                 <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
                   <span className="text-xs font-semibold text-foreground">Generated Feature File</span>
                   <div className="flex gap-2">
+                    <button
+                      data-testid="testgen-rerun-btn"
+                      onClick={handleRerun}
+                      className="text-xs px-2.5 py-1 border border-border rounded hover:bg-muted transition-colors flex items-center gap-1 text-muted-foreground hover:text-td-green hover:border-td-green/50"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Re-run
+                    </button>
                     <button
                       data-testid="testgen-regen-btn"
                       className="text-xs px-2.5 py-1 border border-border rounded hover:bg-muted transition-colors flex items-center gap-1 text-muted-foreground"

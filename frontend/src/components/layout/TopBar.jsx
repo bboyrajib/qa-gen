@@ -79,7 +79,7 @@ export default function TopBar() {
   return (
     <header
       data-testid="topbar"
-      className="fixed z-20 bg-white dark:bg-[#0D1F14] border-b border-border flex items-center px-4 gap-3"
+      className="fixed z-20 bg-topbar border-b border-border flex items-center px-4 gap-3"
       style={{ left: '240px', right: '380px', top: 0, height: '56px' }}
     >
       {/* Project Selector */}

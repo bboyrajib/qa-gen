@@ -6,7 +6,7 @@ import FeedbackWidget from '@/components/shared/FeedbackWidget'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { DEMO_RCA_RESULT } from '@/lib/demo-data'
 import * as Tabs from '@radix-ui/react-tabs'
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, Loader2, Bug } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, ExternalLink, Loader2, Bug, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLocation } from 'react-router-dom'
 
@@ -58,6 +58,25 @@ export default function RCAModule() {
     })
     setCurrentJobId(jobId)
   }
+
+  const handleRerun = () => {
+    setJobDone(false)
+    setCurrentJobId(null)
+    const jobId = simulate(STEPS, {
+      type: 'rca',
+      delay: 700,
+      onComplete: () => { setJobDone(true); setLastJobType('rca'); toast.success('Re-run complete!') },
+    })
+    setCurrentJobId(jobId)
+  }
+
+  useEffect(() => {
+    if (location.state?.rerun && demoMode) {
+      window.history.replaceState({}, document.title)
+      toast.info('Re-running job with demo parameters...')
+      setTimeout(() => handleRerun(), 400)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = DEMO_RCA_RESULT
   const confidenceColor = r.confidence >= 80 ? 'bg-td-green' : r.confidence >= 50 ? 'bg-amber-500' : 'bg-red-500'
@@ -147,11 +166,12 @@ export default function RCAModule() {
             <>
               {/* Classification + Confidence */}
               <div className="bg-card border border-border rounded-xl p-4 space-y-4">
-                <div className="flex items-center gap-3">
-                  <span className={`text-sm font-bold px-4 py-2 rounded-lg border ${CLASSIFICATION_COLORS[r.classification]}`}>
-                    {r.classification.replace('_', ' ')}
-                  </span>
-                  {r.jira_created && (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm font-bold px-4 py-2 rounded-lg border ${CLASSIFICATION_COLORS[r.classification]}`}>
+                      {r.classification.replace('_', ' ')}
+                    </span>
+                    {r.jira_created && (
                     <a
                       href="#"
                       data-testid="rca-jira-link"
@@ -162,6 +182,14 @@ export default function RCAModule() {
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   )}
+                  </div>
+                  <button
+                    data-testid="rca-rerun-btn"
+                    onClick={handleRerun}
+                    className="text-xs px-3 py-1.5 border border-border rounded-lg text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Re-run
+                  </button>
                 </div>
 
                 <div>

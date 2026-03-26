@@ -52,7 +52,7 @@ export default function RegressionModule() {
   const [showInjectDialog, setShowInjectDialog] = useState(false)
   const [decisionFilter, setDecisionFilter] = useState('ALL')
 
-  const { isDark } = useAppStore()
+  const { isDark, demoMode } = useAppStore()
   const { jobs } = useJobStore()
   const { simulate } = useJobSimulator()
   const { setLastJobType } = useChatStore()
@@ -69,6 +69,25 @@ export default function RegressionModule() {
     })
     setCurrentJobId(jobId)
   }
+
+  const handleRerun = () => {
+    setJobDone(false)
+    setCurrentJobId(null)
+    const jobId = simulate(STEPS, {
+      type: 'regression',
+      delay: 700,
+      onComplete: () => { setJobDone(true); setLastJobType('regression'); toast.success('Re-run complete!') },
+    })
+    setCurrentJobId(jobId)
+  }
+
+  useEffect(() => {
+    if (location.state?.rerun && demoMode) {
+      window.history.replaceState({}, document.title)
+      toast.info('Re-running job with demo parameters...')
+      setTimeout(() => handleRerun(), 400)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const r = DEMO_REGRESSION_RESULT
   const filteredTests = decisionFilter === 'ALL'
@@ -299,6 +318,13 @@ export default function RegressionModule() {
                     className="text-xs px-2.5 py-1 border border-border rounded hover:bg-muted transition-colors flex items-center gap-1"
                   >
                     <Download className="w-3 h-3" /> Export
+                  </button>
+                  <button
+                    data-testid="regression-rerun-btn"
+                    onClick={handleRerun}
+                    className="text-xs px-2.5 py-1 border border-border rounded text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Re-run
                   </button>
                   <button
                     data-testid="regression-inject-btn"
