@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getUser, getToken, setAuth, clearAuth } from '@/lib/auth'
 import { useAppStore } from '@/store'
-import { DEMO_USERS } from '@/lib/demo-data'
+import { DEMO_USERS, DEMO_PROJECTS } from '@/lib/demo-data'
 import api from '@/lib/api'
 
 export function useAuth() {
@@ -12,25 +12,30 @@ export function useAuth() {
   const navigate = useNavigate()
   const { demoMode, setDemoMode } = useAppStore()
 
+  const role = user?.role || (user?.is_admin ? 'admin' : 'user')
+  const isSuperAdmin = role === 'super_admin'
+  // isAdmin is true for both super_admin and admin roles
+  const isAdmin = role === 'admin' || role === 'super_admin'
+
   const login = async (email, password) => {
     setLoading(true)
     setError(null)
     try {
       let loggedInUser
       if (demoMode) {
-        // Admin has demo mode ON — use demo credentials
         const demoUser = DEMO_USERS.find((u) => u.email === email && u.password === password)
         if (!demoUser) throw new Error('Invalid email or password')
         const token = `demo-token-${Date.now()}`
         setAuth(token, {
+          id: demoUser.id,
           email: demoUser.email,
           name: demoUser.name,
+          role: demoUser.role,
           is_admin: demoUser.is_admin,
           project_access: demoUser.project_access,
         })
         loggedInUser = getUser()
       } else {
-        // Try real API; fall back to demo credentials (for development)
         try {
           const form = new URLSearchParams({ username: email, password })
           const res = await api.post('/api/v1/auth/login', form.toString(), {
@@ -39,21 +44,24 @@ export function useAuth() {
           setAuth(res.data.access_token, res.data.user)
           loggedInUser = getUser()
         } catch {
-          // Fallback: check demo credentials (allows dev/test without backend)
+          // Fallback: check demo credentials
           const demoUser = DEMO_USERS.find((u) => u.email === email && u.password === password)
           if (!demoUser) throw new Error('Invalid email or password')
           const token = `demo-token-${Date.now()}`
           setAuth(token, {
+            id: demoUser.id,
             email: demoUser.email,
             name: demoUser.name,
+            role: demoUser.role,
             is_admin: demoUser.is_admin,
             project_access: demoUser.project_access,
           })
           loggedInUser = getUser()
         }
       }
-      // Non-admins cannot use demo mode
-      if (!loggedInUser?.is_admin) {
+      // Only super_admin can have demo mode on
+      const loggedRole = loggedInUser?.role || (loggedInUser?.is_admin ? 'admin' : 'user')
+      if (loggedRole !== 'super_admin') {
         setDemoMode(false)
       }
       setUser(loggedInUser)
@@ -76,9 +84,17 @@ export function useAuth() {
 
   const canAccessProject = (id) => {
     if (!user) return false
-    if (user.is_admin) return true
+    const r = user.role || (user.is_admin ? 'admin' : 'user')
+    // Super admin sees all projects
+    if (r === 'super_admin') return true
+    // Admin can only access projects they created
+    if (r === 'admin') {
+      const project = DEMO_PROJECTS.find((p) => p.id === id)
+      return project?.created_by === user.id
+    }
+    // Regular user: check project_access list
     if (user.project_access === null) return true
-    return user.project_access.includes(id)
+    return (user.project_access || []).includes(id)
   }
 
   return {
@@ -87,7 +103,9 @@ export function useAuth() {
     error,
     login,
     logout,
-    isAdmin: user?.is_admin === true,
+    role,
+    isSuperAdmin,
+    isAdmin,
     isAuthenticated: !!getToken(),
     canAccessProject,
   }

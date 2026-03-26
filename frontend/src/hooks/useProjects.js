@@ -1,7 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAppStore } from '@/store'
 import { DEMO_PROJECTS } from '@/lib/demo-data'
+import { getUser } from '@/lib/auth'
 import api from '@/lib/api'
+
+function getAccessibleProjects(user) {
+  if (!user) return []
+  const role = user.role || (user.is_admin ? 'admin' : 'user')
+  if (role === 'super_admin') return DEMO_PROJECTS
+  if (role === 'admin') return DEMO_PROJECTS.filter((p) => p.created_by === user.id)
+  // regular user
+  if (user.project_access === null) return DEMO_PROJECTS
+  return DEMO_PROJECTS.filter((p) => (user.project_access || []).includes(p.id))
+}
 
 export function useProjects() {
   const demoMode = useAppStore((s) => s.demoMode)
@@ -9,7 +20,7 @@ export function useProjects() {
   return useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      if (demoMode) return DEMO_PROJECTS
+      if (demoMode) return getAccessibleProjects(getUser())
       const res = await api.get('/api/v1/projects/')
       return res.data
     },
@@ -37,7 +48,14 @@ export function useCreateProject() {
   return useMutation({
     mutationFn: async (data) => {
       if (demoMode) {
-        return { id: `proj-${Date.now()}`, ...data, member_count: 1, created_at: new Date().toISOString() }
+        const user = getUser()
+        return {
+          id: `proj-${Date.now()}`,
+          ...data,
+          member_count: 1,
+          created_at: new Date().toISOString(),
+          created_by: user?.id || 'unknown',
+        }
       }
       const res = await api.post('/api/v1/projects/', data)
       return res.data

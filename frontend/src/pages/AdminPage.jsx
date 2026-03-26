@@ -18,8 +18,15 @@ import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import { CenteredDialog } from '@/components/shared/CenteredDialog'
 
 const ROLE_BADGE = {
-  true: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  false: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  super_admin: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  admin:       'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  user:        'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+}
+
+const ROLE_LABEL = {
+  super_admin: 'Super Admin',
+  admin:       'Admin',
+  user:        'Member',
 }
 
 const ALL_MODULES = [
@@ -33,12 +40,20 @@ const ALL_MODULES = [
 const colHelper = createColumnHelper()
 
 export default function AdminPage() {
-  const { isAdmin, user: currentUser } = useAuth()
-  const { data: projects } = useProjects()
+  const { isAdmin, isSuperAdmin, user: currentUser } = useAuth()
+  const { data: projects } = useProjects()  // already role-filtered
   const demoMode = useAppStore((s) => s.demoMode)
 
   // ALL hooks must be declared before any early return
-  const [users, setUsers] = useState(DEMO_USERS)
+  const [allUsers, setAllUsers] = useState(DEMO_USERS)
+  // Admin only sees users in their projects; super_admin sees everyone
+  const adminProjectIds = (projects || []).map((p) => p.id)
+  const users = isSuperAdmin
+    ? allUsers
+    : allUsers.filter((u) =>
+        u.id === currentUser?.id ||
+        (u.role === 'user' && (u.project_access || []).some((id) => adminProjectIds.includes(id)))
+      )
   const [globalFilter, setGlobalFilter] = useState('')
   const [showAddUser, setShowAddUser] = useState(false)
   const [editUser, setEditUser] = useState(null)
@@ -46,7 +61,7 @@ export default function AdminPage() {
   const [manageModulesProject, setManageModulesProject] = useState(null)
   const [showPassword, setShowPassword] = useState(false)
   const [userForm, setUserForm] = useState({
-    name: '', email: '', password: '', is_admin: false, project_access: []
+    name: '', email: '', password: '', role: 'user', project_access: []
   })
 
   const { getProjectModules, setModuleEnabled } = useAppStore()
@@ -60,13 +75,16 @@ export default function AdminPage() {
       header: 'Email',
       cell: (info) => <span className="text-muted-foreground">{info.getValue()}</span>,
     }),
-    colHelper.accessor('is_admin', {
+    colHelper.accessor('role', {
       header: 'Role',
-      cell: (info) => (
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[info.getValue()]}`}>
-          {info.getValue() ? 'Admin' : 'Member'}
-        </span>
-      ),
+      cell: (info) => {
+        const r = info.getValue() || (info.row.original.is_admin ? 'admin' : 'user')
+        return (
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_BADGE[r] || ROLE_BADGE.user}`}>
+            {ROLE_LABEL[r] || 'Member'}
+          </span>
+        )
+      },
     }),
     colHelper.accessor('is_active', {
       header: 'Status',
@@ -104,7 +122,7 @@ export default function AdminPage() {
               data-testid={`edit-user-${u.id}`}
               onClick={() => {
                 setEditUser(u)
-                setUserForm({ name: u.name, email: u.email, password: '', is_admin: u.is_admin, project_access: u.project_access || [] })
+                setUserForm({ name: u.name, email: u.email, password: '', role: u.role || (u.is_admin ? 'admin' : 'user'), project_access: u.project_access || [] })
                 setShowAddUser(true)
               }}
               className="text-xs px-2 py-1 border border-border rounded text-foreground hover:bg-muted transition-colors flex items-center gap-1"
@@ -115,7 +133,7 @@ export default function AdminPage() {
               <button
                 data-testid={`deactivate-user-${u.id}`}
                 onClick={() => {
-                  setUsers((prev) => prev.map((usr) => usr.id === u.id ? { ...usr, is_active: !usr.is_active } : usr))
+                  setAllUsers((prev) => prev.map((usr) => usr.id === u.id ? { ...usr, is_active: !usr.is_active } : usr))
                   toast.success(`User ${u.is_active ? 'deactivated' : 'activated'}`)
                 }}
                 className="text-xs px-2 py-1 border border-border rounded hover:bg-muted transition-colors"
@@ -197,20 +215,27 @@ export default function AdminPage() {
 
   const handleSaveUser = () => {
     if (!userForm.name || !userForm.email) return
+    const isAdminRole = userForm.role === 'admin' || userForm.role === 'super_admin'
+    const userPayload = {
+      ...userForm,
+      is_admin: isAdminRole,
+      // admins get null project_access (managed by created_by); users get list
+      project_access: isAdminRole ? null : (userForm.project_access || []),
+    }
     if (editUser) {
-      setUsers((prev) => prev.map((u) => u.id === editUser.id ? { ...u, ...userForm } : u))
+      setAllUsers((prev) => prev.map((u) => u.id === editUser.id ? { ...u, ...userPayload } : u))
       toast.success('User updated')
     } else {
-      setUsers((prev) => [...prev, { id: `user-${Date.now()}`, ...userForm, is_active: true }])
+      setAllUsers((prev) => [...prev, { id: `user-${Date.now()}`, ...userPayload, is_active: true }])
       toast.success('User created')
     }
     setShowAddUser(false)
     setEditUser(null)
-    setUserForm({ name: '', email: '', password: '', is_admin: false, project_access: [] })
+    setUserForm({ name: '', email: '', password: '', role: 'user', project_access: [] })
   }
 
   const handleProjectAccess = (userId, projectId, hasAccess) => {
-    setUsers((prev) => prev.map((u) => {
+    setAllUsers((prev) => prev.map((u) => {
       if (u.id !== userId) return u
       if (u.is_admin) return u
       const current = u.project_access || []
@@ -234,6 +259,11 @@ export default function AdminPage() {
           <span className="font-bold text-foreground">QGenie 2.0</span>
           <span className="text-muted-foreground">/</span>
           <span className="text-sm text-foreground font-medium">Admin Panel</span>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ml-1 ${
+            isSuperAdmin ? ROLE_BADGE.super_admin : ROLE_BADGE.admin
+          }`}>
+            {isSuperAdmin ? 'Super Admin' : 'Admin'}
+          </span>
         </div>
       </header>
 
@@ -273,7 +303,7 @@ export default function AdminPage() {
                   data-testid="add-user-btn"
                   onClick={() => {
                     setEditUser(null)
-                    setUserForm({ name: '', email: '', password: '', is_admin: false, project_access: [] })
+                    setUserForm({ name: '', email: '', password: '', role: 'user', project_access: [] })
                     setShowAddUser(true)
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-td-green text-white text-sm font-medium rounded-lg hover:bg-td-dark-green transition-colors"
@@ -403,17 +433,22 @@ export default function AdminPage() {
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">Role</label>
-            <div className="flex gap-4">
-              {[{ label: 'Member', value: false }, { label: 'Admin', value: true }].map((opt) => (
-                <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
+            <div className="flex gap-4 flex-wrap">
+              {[
+                { label: 'Member', value: 'user' },
+                { label: 'Admin', value: 'admin' },
+                // Only super_admins can assign super_admin role
+                ...(isSuperAdmin ? [{ label: 'Super Admin', value: 'super_admin' }] : []),
+              ].map((opt) => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="radio"
                     name="role"
-                    checked={userForm.is_admin === opt.value}
+                    checked={userForm.role === opt.value}
                     onChange={() => setUserForm((f) => ({
                       ...f,
-                      is_admin: opt.value,
-                      project_access: opt.value ? null : []
+                      role: opt.value,
+                      project_access: (opt.value === 'admin' || opt.value === 'super_admin') ? null : [],
                     }))}
                     className="accent-td-green"
                   />
@@ -422,7 +457,7 @@ export default function AdminPage() {
               ))}
             </div>
           </div>
-          {!userForm.is_admin && (
+          {userForm.role === 'user' && (
             <div>
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 block">
                 Project Access
@@ -455,7 +490,7 @@ export default function AdminPage() {
         </div>
         <div className="flex justify-end gap-2 mt-6">
           <button
-            onClick={() => { setShowAddUser(false); setEditUser(null) }}
+            onClick={() => { setShowAddUser(false); setEditUser(null); setUserForm({ name: '', email: '', password: '', role: 'user', project_access: [] }) }}
             className="px-4 py-2 text-sm rounded-md border border-border text-foreground hover:bg-muted transition-colors"
           >
             Cancel

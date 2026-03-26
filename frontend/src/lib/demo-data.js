@@ -9,6 +9,17 @@ export const DEMO_USERS = [
     email: 'admin@tdbank.com',
     password: 'admin123',
     name: 'Alex Johnson',
+    role: 'super_admin',
+    is_admin: true,
+    project_access: null,
+    is_active: true,
+  },
+  {
+    id: 'user-4',
+    email: 'projectadmin@tdbank.com',
+    password: 'admin456',
+    name: 'Jamie Lee',
+    role: 'admin',
     is_admin: true,
     project_access: null,
     is_active: true,
@@ -18,6 +29,7 @@ export const DEMO_USERS = [
     email: 'user@tdbank.com',
     password: 'test123',
     name: 'Sarah Chen',
+    role: 'user',
     is_admin: false,
     project_access: ['proj-1', 'proj-2'],
     is_active: true,
@@ -27,6 +39,7 @@ export const DEMO_USERS = [
     email: 'qa@tdbank.com',
     password: 'qa123',
     name: 'Michael Torres',
+    role: 'user',
     is_admin: false,
     project_access: ['proj-1'],
     is_active: true,
@@ -42,6 +55,7 @@ export const DEMO_PROJECTS = [
     jira_project_key: 'TDB',
     member_count: 12,
     created_at: '2024-09-01T10:00:00Z',
+    created_by: 'user-1',
   },
   {
     id: 'proj-2',
@@ -50,6 +64,7 @@ export const DEMO_PROJECTS = [
     jira_project_key: 'TDW',
     member_count: 8,
     created_at: '2024-10-15T10:00:00Z',
+    created_by: 'user-4',
   },
   {
     id: 'proj-3',
@@ -58,6 +73,7 @@ export const DEMO_PROJECTS = [
     jira_project_key: 'TDR',
     member_count: 15,
     created_at: '2024-11-20T10:00:00Z',
+    created_by: 'user-1',
   },
 ]
 
