@@ -21,7 +21,9 @@ export const useAppStore = create(
       },
 
       initTheme: () => {
-        if (get().isDark) {
+        // Always reset demoMode to DEMO_MODE_DEFAULT on fresh app load
+        const isDark = get().isDark
+        if (isDark) {
           document.documentElement.classList.add('dark')
         } else {
           document.documentElement.classList.remove('dark')

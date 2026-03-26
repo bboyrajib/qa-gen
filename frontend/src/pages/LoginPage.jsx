@@ -23,6 +23,10 @@ export default function LoginPage() {
   const fillDemo = (email, pass) => {
     setEmail(email)
     setPassword(pass)
+    // Auto-submit with brief visual feedback delay
+    setTimeout(() => {
+      login(email, pass)
+    }, 150)
   }
 
   return (
