@@ -69,11 +69,9 @@ export default function RegressionModule() {
   }
 
   const r = DEMO_REGRESSION_RESULT
-
-  const filteredTests = useMemo(
-    () => decisionFilter === 'ALL' ? r.tests : r.tests.filter((t) => t.decision === decisionFilter),
-    [decisionFilter, r.tests] // eslint-disable-line react-hooks/exhaustive-deps
-  )
+  const filteredTests = decisionFilter === 'ALL'
+    ? r.tests
+    : r.tests.filter((t) => t.decision === decisionFilter)
 
   const columns = useMemo(() => [
     colHelper.accessor('name', {
