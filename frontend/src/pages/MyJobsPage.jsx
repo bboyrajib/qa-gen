@@ -8,9 +8,10 @@ import {
 } from '@tanstack/react-table'
 import {
   Briefcase, CheckCircle2, AlertCircle, Clock, Loader2,
-  ArrowUpDown, ExternalLink, Play
+  ArrowUpDown, ExternalLink, RotateCcw
 } from 'lucide-react'
 import { timeAgo } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const MODULE_LABELS = {
   'tosca-convert': 'Tosca Conversion',
@@ -43,6 +44,8 @@ export default function MyJobsPage() {
   const navigate = useNavigate()
   const { data: apiJobs = [] } = useRecentJobs(projectId)
   const { jobs: sessionJobs } = useJobStore()
+  const getProjectModules = useAppStore((s) => s.getProjectModules)
+  useAppStore((s) => s.globalModules) // re-render when global modules change
 
   const allJobs = useMemo(() => {
     const sessionList = Object.entries(sessionJobs)
@@ -125,22 +128,29 @@ export default function MyJobsPage() {
     }),
     colHelper.display({
       id: 'actions',
-      header: '',
+      header: () => (
+        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
+      ),
       cell: (info) => {
         const job = info.row.original
         const path = MODULE_PATHS[job.type]
         if (!path) return null
+        const moduleDisabled = getProjectModules(projectId)[path] === false
+        if (moduleDisabled) {
+          return <span className="text-xs text-muted-foreground italic">Module disabled</span>
+        }
         return (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-end gap-2">
             <button
               data-testid={`open-job-${job.id}`}
               onClick={(e) => {
                 e.stopPropagation()
                 navigate(`/projects/${projectId}/${path}`, { state: { autoShow: job.status === 'COMPLETE' } })
               }}
-              className="flex items-center gap-1 text-xs text-td-green hover:text-td-dark-green transition-colors font-medium"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-border text-foreground hover:border-td-green hover:text-td-green transition-all duration-150"
             >
-              Open <ExternalLink className="w-3 h-3" />
+              <ExternalLink className="w-3 h-3" />
+              Open
             </button>
             <button
               data-testid={`rerun-job-${job.id}`}
@@ -148,15 +158,16 @@ export default function MyJobsPage() {
                 e.stopPropagation()
                 navigate(`/projects/${projectId}/${path}`, { state: { rerun: true } })
               }}
-              className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-td-green hover:border-td-green/50 hover:bg-td-green/5 transition-colors font-medium"
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-td-green/10 text-td-green hover:bg-td-green hover:text-white border border-td-green/30 hover:border-td-green transition-all duration-150"
             >
-              <Play className="w-3 h-3" /> Re-run
+              <RotateCcw className="w-3 h-3" />
+              Re-run
             </button>
           </div>
         )
       },
     }),
-  ], [projectId, navigate])
+  ], [projectId, navigate, getProjectModules])
 
   const table = useReactTable({
     data: allJobs,
@@ -227,7 +238,7 @@ export default function MyJobsPage() {
                   {hg.headers.map((h) => (
                     <th
                       key={h.id}
-                      className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+                      className={`px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider ${h.id === 'actions' ? 'text-right' : 'text-left'}`}
                     >
                       {flexRender(h.column.columnDef.header, h.getContext())}
                     </th>
@@ -242,7 +253,12 @@ export default function MyJobsPage() {
                   data-testid={`job-row-${row.original.id}`}
                   onClick={() => {
                     const p = MODULE_PATHS[row.original.type]
-                    if (p) navigate(`/projects/${projectId}/${p}`, { state: { autoShow: row.original.status === 'COMPLETE' } })
+                    if (!p) return
+                    if (getProjectModules(projectId)[p] === false) {
+                      toast.error('This module is disabled for this project')
+                      return
+                    }
+                    navigate(`/projects/${projectId}/${p}`, { state: { autoShow: row.original.status === 'COMPLETE' } })
                   }}
                   className={`transition-colors cursor-pointer hover:bg-muted/30 ${i % 2 ? 'bg-muted/10' : ''}`}
                 >

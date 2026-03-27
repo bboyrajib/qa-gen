@@ -77,15 +77,34 @@ export const DEMO_PROJECTS = [
   },
 ]
 
+// ─── Project Members ───────────────────────────────────────────────────────────
+// Maps projectId → array of { user_id, project_role: 'admin' | 'member' }
+export const DEMO_PROJECT_MEMBERS = {
+  'proj-1': [
+    { user_id: 'user-1', project_role: 'admin' },
+    { user_id: 'user-4', project_role: 'admin' },
+    { user_id: 'user-2', project_role: 'member' },
+  ],
+  'proj-2': [
+    { user_id: 'user-1', project_role: 'admin' },
+    { user_id: 'user-4', project_role: 'admin' },
+    { user_id: 'user-2', project_role: 'member' },
+  ],
+  'proj-3': [
+    { user_id: 'user-1', project_role: 'admin' },
+    { user_id: 'user-3', project_role: 'member' },
+  ],
+}
+
 // ─── Recent Jobs ───────────────────────────────────────────────────────────────
 export const DEMO_RECENT_JOBS = [
-  { id: 'job-1', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-1' },
-  { id: 'job-2', type: 'test-gen', status: 'RUNNING', submitted: new Date(Date.now() - 25 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-1' },
-  { id: 'job-3', type: 'rca', status: 'FAILED', submitted: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), user: 'Michael Torres', project_id: 'proj-1' },
-  { id: 'job-4', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-1' },
-  { id: 'job-5', type: 'regression', status: 'QUEUED', submitted: new Date(Date.now() - 5 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-1' },
-  { id: 'job-6', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', project_id: 'proj-2' },
-  { id: 'job-7', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(), user: 'Sarah Chen', project_id: 'proj-2' },
+  { id: 'job-1', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', user_id: 'user-1', project_id: 'proj-1' },
+  { id: 'job-2', type: 'test-gen', status: 'RUNNING', submitted: new Date(Date.now() - 25 * 60 * 1000).toISOString(), user: 'Sarah Chen', user_id: 'user-2', project_id: 'proj-1' },
+  { id: 'job-3', type: 'rca', status: 'FAILED', submitted: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(), user: 'Michael Torres', user_id: 'user-3', project_id: 'proj-1' },
+  { id: 'job-4', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', user_id: 'user-1', project_id: 'proj-1' },
+  { id: 'job-5', type: 'regression', status: 'QUEUED', submitted: new Date(Date.now() - 5 * 60 * 1000).toISOString(), user: 'Sarah Chen', user_id: 'user-2', project_id: 'proj-1' },
+  { id: 'job-6', type: 'tosca-convert', status: 'COMPLETE', submitted: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(), user: 'Alex Johnson', user_id: 'user-1', project_id: 'proj-2' },
+  { id: 'job-7', type: 'impact', status: 'COMPLETE', submitted: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(), user: 'Sarah Chen', user_id: 'user-2', project_id: 'proj-2' },
 ]
 
 // ─── Tosca Module ──────────────────────────────────────────────────────────────

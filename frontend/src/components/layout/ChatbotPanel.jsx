@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { useChatSSE } from '@/hooks/useSSE'
-import { useChatStore, useJobStore } from '@/store'
+import { useChatStore, useJobStore, useAppStore } from '@/store'
 import { Send, Paperclip, X, MessageSquare, FileText, GitBranch, ChevronDown } from 'lucide-react'
 import * as Tabs from '@radix-ui/react-tabs'
 
@@ -20,9 +20,11 @@ export default function ChatbotPanel() {
   const [uploadedFile, setUploadedFile] = useState(null)
   const messagesEndRef = useRef(null)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
   const { sendMessage, cleanup } = useChatSSE()
   const { messages, isStreaming, streamingContent, lastJobType } = useChatStore()
   const { activeJobId, jobs } = useJobStore()
+  const chatOpen = useAppStore((s) => s.chatOpen)
 
   const activeJobData = activeJobId ? jobs[activeJobId] : null
   const chips = CONTEXT_CHIPS[activeJobData?.type] || []
@@ -43,7 +45,12 @@ export default function ChatbotPanel() {
       'text/plain;charset=utf-8': ['.feature', '.xml'],
     },
     maxFiles: 1,
-    onDrop: (files) => setUploadedFile(files[0]),
+    onDrop: (files) => {
+      if (files[0]) {
+        setUploadedFile(files[0])
+        setContextTab('file')
+      }
+    },
   })
 
   const handleSend = () => {
@@ -69,7 +76,7 @@ export default function ChatbotPanel() {
   return (
     <aside
       data-testid="chatbot-panel"
-      className="fixed right-0 top-0 bottom-0 w-[380px] z-30 bg-white dark:bg-[#0D1F14] border-l border-border flex flex-col"
+      className={`fixed right-0 top-0 bottom-0 w-[380px] z-30 bg-white dark:bg-[#0D1F14] border-l border-border flex flex-col transition-transform duration-300 ${chatOpen ? 'translate-x-0' : 'translate-x-full'}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-4 h-16 border-b border-border flex-shrink-0">
@@ -242,7 +249,26 @@ export default function ChatbotPanel() {
             onKeyDown={handleKeyDown}
           />
           <div className="flex items-center gap-1 flex-shrink-0">
-            <button className="text-muted-foreground hover:text-foreground transition-colors p-1">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.log,.ts,.java,.py,.feature,.xml"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) {
+                  setUploadedFile(file)
+                  setContextTab('file')
+                }
+                e.target.value = ''
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={`transition-colors p-1 ${uploadedFile ? 'text-td-green' : 'text-muted-foreground hover:text-foreground'}`}
+              title={uploadedFile ? `Attached: ${uploadedFile.name}` : 'Attach file'}
+            >
               <Paperclip className="w-3.5 h-3.5" />
             </button>
             <button

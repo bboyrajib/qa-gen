@@ -47,6 +47,12 @@ async def require_admin(current_user=Depends(get_current_user)):
     return current_user
 
 
+async def require_super_admin(current_user=Depends(get_current_user)):
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin access required")
+    return current_user
+
+
 def check_project_access(user, project_id: str):
     if user.role == "super_admin":
         return
@@ -54,9 +60,34 @@ def check_project_access(user, project_id: str):
         raise HTTPException(status_code=403, detail="You do not have access to this project")
 
 
-def check_module_access(project, module: str):
+def check_project_admin_access(user, project_id: str, db):
+    """Allow super_admin always; allow project members whose role is 'admin'."""
+    if user.role == "super_admin":
+        return
+    from app.models.project import QgProjectMember
+    member = db.query(QgProjectMember).filter(
+        QgProjectMember.project_id == project_id,
+        QgProjectMember.user_email == user.email,
+        QgProjectMember.role == "admin",
+    ).first()
+    if not member:
+        raise HTTPException(status_code=403, detail="Project admin access required")
+
+
+def check_module_access(project, module: str, db: Session):
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Check global disable first
+    from app.models.system_config import QgSystemConfig
+    global_row = db.query(QgSystemConfig).filter(QgSystemConfig.key == "global_modules").first()
+    if global_row and isinstance(global_row.value, dict) and global_row.value.get(module) is False:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Module '{module}' has been globally disabled by an administrator."
+        )
+
+    # Check per-project disable
     if project.enabled_modules is None:
         return
     if module not in project.enabled_modules:

@@ -18,6 +18,7 @@ function getAccessibleProjects(user) {
 
 export function useProjects() {
   const demoMode = useAppStore((s) => s.demoMode)
+  const setProjectModulesFromBackend = useAppStore((s) => s.setProjectModulesFromBackend)
 
   return useQuery({
     queryKey: ['projects'],
@@ -25,6 +26,11 @@ export function useProjects() {
       if (demoMode) return getAccessibleProjects(getUser())
       const res = await api.get('/api/v1/projects/')
       return res.data
+    },
+    onSuccess: (projects) => {
+      if (!demoMode) {
+        projects.forEach((p) => setProjectModulesFromBackend(p.id, p.enabled_modules ?? null))
+      }
     },
   })
 }

@@ -46,7 +46,37 @@ export function useJobSimulator() {
 
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { DEMO_RECENT_JOBS } from '@/lib/demo-data'
+import { getUser } from '@/lib/auth'
 import api from '@/lib/api'
+
+function filterJobsForUser(jobs, user, projectId) {
+  if (!user) return []
+  const role = user.role || (user.is_admin ? 'admin' : 'user')
+  let visible = jobs
+
+  // Scope to project if provided
+  if (projectId) {
+    visible = visible.filter((j) => j.project_id === projectId)
+  }
+
+  if (role === 'super_admin') {
+    // Super admin sees all jobs
+    return visible
+  }
+
+  if (role === 'admin') {
+    // Project admin sees all jobs for their accessible projects
+    const accessible = user.project_access || []
+    return visible.filter((j) => accessible.includes(j.project_id))
+  }
+
+  // Regular user: only their own jobs for their accessible projects
+  const accessible = user.project_access === null ? null : (user.project_access || [])
+  return visible.filter((j) => {
+    const inProject = accessible === null || accessible.includes(j.project_id)
+    return inProject && j.user_id === user.id
+  })
+}
 
 export function useRecentJobs(projectId) {
   const demoMode = useAppStore((s) => s.demoMode)
@@ -55,7 +85,7 @@ export function useRecentJobs(projectId) {
     queryKey: ['jobs', projectId],
     queryFn: async () => {
       if (demoMode) {
-        return DEMO_RECENT_JOBS.filter((j) => j.project_id === projectId)
+        return filterJobsForUser(DEMO_RECENT_JOBS, getUser(), projectId)
       }
       const res = await api.get(`/api/v1/jobs/?project_id=${projectId}&limit=10`)
       return res.data
@@ -70,7 +100,7 @@ export function useAllRecentJobs() {
   return useQuery({
     queryKey: ['jobs', 'all'],
     queryFn: async () => {
-      if (demoMode) return DEMO_RECENT_JOBS
+      if (demoMode) return filterJobsForUser(DEMO_RECENT_JOBS, getUser(), null)
       const res = await api.get('/api/v1/jobs/?limit=5')
       return res.data
     },

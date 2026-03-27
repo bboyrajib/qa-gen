@@ -14,6 +14,7 @@ class UserPublic(BaseModel):
     role: str
     is_admin: bool
     project_access: Optional[List[str]]
+    must_change_password: bool = False
 
     class Config:
         from_attributes = True
@@ -32,6 +33,7 @@ class UserCreate(BaseModel):
     role: str = "user"
     is_admin: bool = False
     project_access: Optional[List[str]] = []
+    must_change_password: bool = True
 
 
 class UserUpdate(BaseModel):
@@ -50,9 +52,15 @@ class UserOut(BaseModel):
     role: str
     is_admin: bool
     is_active: bool
+    must_change_password: bool = False
     project_access: Optional[List[str]]
     last_login: Optional[str] = None
     created_by: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: Optional[str] = None  # not required when must_change_password=True
+    new_password: str

@@ -15,6 +15,7 @@ import RCAModule from '@/components/modules/RCAModule'
 import ImpactModule from '@/components/modules/ImpactModule'
 import RegressionModule from '@/components/modules/RegressionModule'
 import MyJobsPage from '@/pages/MyJobsPage'
+import ProjectSettingsPage from '@/pages/ProjectSettingsPage'
 import '@/App.css'
 
 const queryClient = new QueryClient({
@@ -36,7 +37,7 @@ function AuthGuard({ children }) {
 
 function AdminGuard({ children }) {
   const user = getUser()
-  if (!isAuthenticated() || !user?.is_admin) return <Navigate to="/projects" replace />
+  if (!isAuthenticated() || user?.role !== 'super_admin') return <Navigate to="/projects" replace />
   return children
 }
 
@@ -62,9 +63,10 @@ function App() {
             <Route path="impact" element={<ImpactModule />} />
             <Route path="regression" element={<RegressionModule />} />
             <Route path="jobs" element={<MyJobsPage />} />
+            <Route path="settings" element={<ProjectSettingsPage />} />
           </Route>
         </Routes>
-        <Toaster position="top-right" richColors />
+        <Toaster position="bottom-center" richColors />
       </BrowserRouter>
     </QueryClientProvider>
   )

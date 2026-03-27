@@ -5,8 +5,10 @@ import { useAppStore, useNotificationStore } from '@/store'
 import { useProjects } from '@/hooks/useProjects'
 import {
   Bell, Sun, Moon, Database, LogOut,
-  ChevronDown, ShieldCheck, Plus, CheckCircle2, AlertCircle, Clock, Loader2
+  ChevronDown, ShieldCheck, Plus, CheckCircle2, AlertCircle, Clock, Loader2, Check,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, KeyRound
 } from 'lucide-react'
+import ChangePasswordDialog from '@/components/shared/ChangePasswordDialog'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { useCreateProject } from '@/hooks/useProjects'
 import { CenteredDialog } from '@/components/shared/CenteredDialog'
@@ -37,13 +39,15 @@ const STATUS_ICON = {
 }
 
 export default function TopBar() {
-  const { user, logout, isAdmin } = useAuth()
-  const { isDark, toggleDark, demoMode, toggleDemo, activeProjectId, setActiveProjectId } = useAppStore()
+  const { user, logout, isAdmin, isSuperAdmin, mustChangePassword, changePassword } = useAuth()
+  const { isDark, toggleDark, demoMode, toggleDemo, activeProjectId, setActiveProjectId, sidebarOpen, toggleSidebar, chatOpen, toggleChat } = useAppStore()
   const { data: projects } = useProjects()
   const navigate = useNavigate()
   const [showNewProject, setShowNewProject] = useState(false)
   const [newProjectForm, setNewProjectForm] = useState({ name: '', jira_project_key: '', domain_tag: 'Payments' })
   const createProject = useCreateProject()
+
+  const [showChangePassword, setShowChangePassword] = useState(false)
 
   const { getProjectNotifications, getUnreadCount, markAllRead, dismissAll } = useNotificationStore()
   const notifications = activeProjectId ? getProjectNotifications(activeProjectId) : []
@@ -79,9 +83,19 @@ export default function TopBar() {
   return (
     <header
       data-testid="topbar"
-      className="fixed z-20 bg-topbar border-b border-border flex items-center px-4 gap-3"
-      style={{ left: '240px', right: '380px', top: 0, height: '64px' }}
+      className="fixed z-20 bg-topbar border-b border-border flex items-center px-2 gap-3 transition-all duration-300"
+      style={{ left: sidebarOpen ? '240px' : '56px', right: chatOpen ? '380px' : '0', top: 0, height: '64px' }}
     >
+      {/* Sidebar Toggle */}
+      <button
+        data-testid="toggle-sidebar"
+        onClick={toggleSidebar}
+        className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+        title={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+      >
+        {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+      </button>
+
       {/* Project Selector */}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
@@ -110,7 +124,9 @@ export default function TopBar() {
                   navigate(`/projects/${p.id}`)
                 }}
               >
-                <span className="w-2 h-2 rounded-full bg-td-green flex-shrink-0" />
+                {p.id === activeProjectId
+                  ? <Check className="w-3.5 h-3.5 text-td-green flex-shrink-0" />
+                  : <span className="w-2 h-2 rounded-full bg-td-green flex-shrink-0" />}
                 {p.name}
               </DropdownMenu.Item>
             ))}
@@ -297,7 +313,7 @@ export default function TopBar() {
               <p className="text-sm font-medium text-foreground">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user?.email}</p>
             </div>
-            {isAdmin && (
+            {isSuperAdmin && (
               <DropdownMenu.Item asChild>
                 <Link
                   to="/admin"
@@ -310,6 +326,15 @@ export default function TopBar() {
               </DropdownMenu.Item>
             )}
             <DropdownMenu.Item
+              data-testid="change-password-btn"
+              className="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-muted dark:hover:bg-white/10 text-foreground outline-none"
+              onSelect={() => setShowChangePassword(true)}
+            >
+              <KeyRound className="w-4 h-4 text-muted-foreground" />
+              Change Password
+            </DropdownMenu.Item>
+            <DropdownMenu.Separator className="my-1 h-px bg-border" />
+            <DropdownMenu.Item
               data-testid="sign-out-btn"
               className="flex items-center gap-2 px-3 py-2 text-sm rounded-md cursor-pointer hover:bg-muted dark:hover:bg-white/10 text-destructive outline-none"
               onSelect={logout}
@@ -320,6 +345,22 @@ export default function TopBar() {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+
+      {/* Chat Toggle */}
+      <button
+        data-testid="toggle-chat"
+        onClick={toggleChat}
+        className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-muted text-muted-foreground hover:text-foreground transition-colors flex-shrink-0"
+        title={chatOpen ? 'Hide assistant' : 'Show assistant'}
+      >
+        {chatOpen ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
+      </button>
+
+      <ChangePasswordDialog
+        open={showChangePassword}
+        onOpenChange={setShowChangePassword}
+        onSubmit={changePassword}
+      />
 
       {/* New Project Dialog */}
       <CenteredDialog

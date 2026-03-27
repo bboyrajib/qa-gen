@@ -30,14 +30,14 @@ backend/
 │   ├── core/
 │   │   ├── config.py              # Pydantic Settings (reads .env)
 │   │   ├── db.py                  # SQLAlchemy engine, SessionLocal, Base
-│   │   └── auth.py                # JWT helpers, get_current_user, access guards
+│   │   └── auth.py                # JWT helpers, get_current_user, require_super_admin, check_project_admin_access
 │   ├── models/                    # SQLAlchemy ORM models (all prefixed qg_)
 │   ├── schemas/                   # Pydantic request/response schemas
 │   ├── api/                       # FastAPI routers
 │   │   ├── auth.py                # POST /auth/login, GET /auth/me, POST /auth/logout
-│   │   ├── admin.py               # User CRUD, project access, module toggles
+│   │   ├── admin.py               # Global user CRUD + module toggles (super_admin only)
 │   │   ├── jobs.py                # Job submission + GET /jobs/{id}/stream (SSE)
-│   │   ├── projects.py            # Project CRUD
+│   │   ├── projects.py            # Project CRUD + project-member management
 │   │   ├── jira.py                # GET /jira/story/{id}
 │   │   ├── chatbot.py             # POST /chat/, GET /chat/stream/{id} (SSE)
 │   │   ├── feedback.py            # POST /feedback/
@@ -167,8 +167,9 @@ All routes are prefixed `/api/v1/`. Protected endpoints require `Authorization: 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `POST` | `/auth/login` | `application/x-www-form-urlencoded` — returns `access_token` + `user` object |
+| `POST` | `/auth/login` | `application/x-www-form-urlencoded` — returns `access_token` + `user` object (includes `must_change_password`) |
 | `GET` | `/auth/me` | Returns current user profile |
+| `POST` | `/auth/change-password` | Change own password — body: `{ current_password?, new_password }`. `current_password` is optional when `must_change_password=true` (first-login setup). Min 8 chars. |
 | `POST` | `/auth/logout` | Stateless logout — returns `{"message": "Logged out successfully"}` |
 
 ### Projects
@@ -208,18 +209,29 @@ All routes are prefixed `/api/v1/`. Protected endpoints require `Authorization: 
 | `POST` | `/webhooks/cicd-failure` | CI/CD pipeline failure webhook → auto-RCA |
 | `POST` | `/webhooks/pr-commit` | PR commit webhook → auto-impact analysis |
 
-### Admin (requires `is_admin=true`)
+### Global Admin (requires `super_admin` role)
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/admin/users` | List all users |
-| `POST` | `/admin/users` | Create a user |
-| `PATCH` | `/admin/users/{id}` | Update a user (role, password, access, etc.) |
+| `GET` | `/admin/users` | List all users system-wide |
+| `POST` | `/admin/users` | Create a user — body includes `must_change_password` (default `true`) |
+| `PATCH` | `/admin/users/{id}` | Update a user (role, password, project access, etc.) |
 | `DELETE` | `/admin/users/{id}` | Deactivate a user |
-| `POST` | `/admin/users/{id}/projects/{pid}` | Grant project access |
-| `DELETE` | `/admin/users/{id}/projects/{pid}` | Revoke project access |
+| `POST` | `/admin/users/{id}/projects/{pid}` | Grant project access to a user |
+| `DELETE` | `/admin/users/{id}/projects/{pid}` | Revoke project access from a user |
+| `DELETE` | `/admin/projects/{id}` | Soft-delete a project (`is_active=False`) and remove it from all users' `project_access` lists |
 | `GET` | `/admin/projects/{id}/modules` | Get enabled modules for a project |
-| `PATCH` | `/admin/projects/{id}/modules` | Set enabled modules for a project |
+| `PATCH` | `/admin/projects/{id}/modules` | Enable/disable modules for a project |
+
+### Project Member Management (requires project `admin` role or `super_admin`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/projects/{id}/members` | List all members of a project |
+| `POST` | `/projects/{id}/members` | Add an existing user to a project with a role (`admin`\|`member`) |
+| `PATCH` | `/projects/{id}/members/{email}` | Change a member's project role |
+| `DELETE` | `/projects/{id}/members/{email}` | Remove a member from a project |
+| `POST` | `/projects/{id}/users` | **Project admin user creation** — create a new user account and immediately add them to the project. New account has `must_change_password=true`. Body: `{ email, display_name, password, project_role }` |
 
 ---
 
@@ -278,9 +290,21 @@ Flakiness score = `(1 − pass_rate) × 0.6 + std(daily_pass_rates) × 0.4`. Tes
 
 | Role | Description |
 |------|-------------|
-| `super_admin` | Full access to all projects and modules. Can manage other admins. `project_access = null`. |
-| `admin` | Can manage users and projects. `is_admin = true`. |
-| `user` | Access limited to projects listed in `project_access`. |
+| `super_admin` | Full access to all projects and system settings. Global user management. `project_access = null`. |
+| `admin` | Project-level admin. Can manage members for projects they are an admin of. `is_admin = true`. |
+| `user` | Access limited to projects listed in `project_access`. Views and runs jobs only. |
+
+**Project-level roles** (stored in `qg_project_members.role`):
+
+| Project Role | Description |
+|------|-------------|
+| `admin` | Can add/remove members and change roles within the project. |
+| `member` | Can access all enabled modules and view their own jobs. |
+
+**Job visibility:**
+- `super_admin` — sees all jobs across all projects
+- `admin` — sees all jobs for their accessible projects
+- `user` — sees only their own jobs
 
 Module access is controlled per-project via `qg_projects.enabled_modules` (JSON column).
 `null` = all modules enabled. `[]` = all modules disabled.
@@ -295,7 +319,7 @@ All tables are prefixed `qg_` and use `UNIQUEIDENTIFIER` primary keys.
 
 | Table | Purpose |
 |-------|---------|
-| `qg_users` | User accounts with hashed passwords, roles, and project access lists |
+| `qg_users` | User accounts with hashed passwords, roles, project access lists, and `must_change_password` flag |
 | `qg_projects` | Projects with enabled module configuration |
 | `qg_project_members` | Project membership records |
 | `qg_jobs` | Job execution records with status, type, and result payload |

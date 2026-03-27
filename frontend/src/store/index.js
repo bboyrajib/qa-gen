@@ -26,6 +26,11 @@ export const useAppStore = create(
       demoMode: DEMO_MODE_DEFAULT,
       activeProjectId: null,
       projectModules: {},
+      globalModules: { ...DEFAULT_MODULES },
+      sidebarOpen: true,
+      chatOpen: true,
+      toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+      toggleChat: () => set((s) => ({ chatOpen: !s.chatOpen })),
 
       toggleDark: () => {
         const newVal = !get().isDark
@@ -50,9 +55,29 @@ export const useAppStore = create(
       setDemoMode: (val) => set({ demoMode: val }),
       setActiveProjectId: (id) => set({ activeProjectId: id }),
 
+      setGlobalModuleEnabled: (moduleKey, enabled) => set((s) => ({
+        globalModules: { ...s.globalModules, [moduleKey]: enabled },
+      })),
+      setGlobalModules: (modules) => set({ globalModules: { ...DEFAULT_MODULES, ...modules } }),
+
+      // Hydrate a project's module state from the backend's enabled_modules array (null = all enabled)
+      setProjectModulesFromBackend: (projectId, enabledModules) => set((s) => ({
+        projectModules: {
+          ...s.projectModules,
+          [projectId]: enabledModules === null
+            ? { ...DEFAULT_MODULES }
+            : Object.fromEntries(Object.keys(DEFAULT_MODULES).map((k) => [k, enabledModules.includes(k)])),
+        },
+      })),
+
       getProjectModules: (projectId) => {
         const stored = get().projectModules[projectId]
-        return stored ? { ...DEFAULT_MODULES, ...stored } : { ...DEFAULT_MODULES }
+        const perProject = stored ? { ...DEFAULT_MODULES, ...stored } : { ...DEFAULT_MODULES }
+        const global = get().globalModules
+        // A globally disabled module overrides any per-project setting
+        return Object.fromEntries(
+          Object.entries(perProject).map(([k, v]) => [k, global[k] === false ? false : v])
+        )
       },
       setModuleEnabled: (projectId, moduleKey, enabled) => set((s) => ({
         projectModules: {
@@ -67,7 +92,7 @@ export const useAppStore = create(
     }),
     {
       name: 'qgenie-app-store',
-      partialize: (s) => ({ isDark: s.isDark, demoMode: s.demoMode, projectModules: s.projectModules }),
+      partialize: (s) => ({ isDark: s.isDark, demoMode: s.demoMode, projectModules: s.projectModules, globalModules: s.globalModules }),
     }
   )
 )

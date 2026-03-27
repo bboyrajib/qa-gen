@@ -1,11 +1,12 @@
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useProject } from '@/hooks/useProjects'
 import { useRecentJobs } from '@/hooks/useJobs'
+import { useAppStore } from '@/store'
 import JobStatusBadge from '@/components/shared/JobStatusBadge'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import {
   ArrowLeftRight, FlaskConical, Bug, Search, BarChart3,
-  Clock, User, ChevronRight
+  Clock, User, ChevronRight, ExternalLink, RotateCcw
 } from 'lucide-react'
 
 const MODULE_CARDS = [
@@ -73,6 +74,10 @@ export default function ProjectDashboard() {
   const { data: project } = useProject(projectId)
   const { data: recentJobs, isLoading } = useRecentJobs(projectId)
   const navigate = useNavigate()
+  const getProjectModules = useAppStore((s) => s.getProjectModules)
+  useAppStore((s) => s.globalModules) // re-render when global modules change
+  const enabledModules = getProjectModules(projectId)
+  const visibleModuleCards = MODULE_CARDS.filter((m) => enabledModules[m.path] !== false)
 
   const getLastJobStatus = (type) => {
     const job = recentJobs?.find((j) => j.type === type)
@@ -94,8 +99,8 @@ export default function ProjectDashboard() {
       {/* Agent Status Cards */}
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">AI Modules</h2>
-        <div className="grid grid-cols-5 gap-3">
-          {MODULE_CARDS.map(({ type, label, path, icon: Icon, description, color }) => {
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {visibleModuleCards.map(({ type, label, path, icon: Icon, description, color }) => {
             const lastStatus = getLastJobStatus(type)
             return (
               <Link
@@ -143,11 +148,12 @@ export default function ProjectDashboard() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Job ID</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Module</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Submitted</th>
                   <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">User</th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"></th>
+                  <th className="px-4 py-2.5 text-right text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -157,27 +163,58 @@ export default function ProjectDashboard() {
                     data-testid={`recent-job-row-${job.id}`}
                     className={`transition-colors ${i % 2 === 0 ? '' : 'bg-muted/10'} hover:bg-muted/20`}
                   >
+                    <td className="px-4 py-3">
+                      <code className="text-xs font-mono text-foreground bg-muted px-1.5 py-0.5 rounded">
+                        {job.id}
+                      </code>
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">
                       {MODULE_LABELS[job.type] || job.type}
                     </td>
                     <td className="px-4 py-3">
                       <JobStatusBadge status={job.status} />
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatRelativeTime(job.submitted)}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatRelativeTime(job.submitted)}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {job.user}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <User className="w-3 h-3" />
+                        {job.user}
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        to={`/projects/${projectId}/${MODULE_CARDS.find((m) => m.type === job.type)?.path || ''}`}
-                        className="text-xs text-td-green hover:underline"
-                      >
-                        Open
-                      </Link>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const card = MODULE_CARDS.find((m) => m.type === job.type)
+                        const moduleDisabled = card ? enabledModules[card.path] === false : false
+                        return (
+                          <div className="flex items-center justify-end gap-2">
+                            {moduleDisabled ? (
+                              <span className="text-xs text-muted-foreground italic px-1">Module disabled</span>
+                            ) : (
+                              <>
+                                <Link
+                                  to={`/projects/${projectId}/${card?.path || ''}`}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md border border-border text-foreground hover:border-td-green hover:text-td-green transition-all duration-150"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Open
+                                </Link>
+                                <button
+                                  onClick={() => navigate(`/projects/${projectId}/${card?.path || ''}`)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md bg-td-green/10 text-td-green hover:bg-td-green hover:text-white border border-td-green/30 hover:border-td-green transition-all duration-150"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  Re-run
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -191,7 +228,7 @@ export default function ProjectDashboard() {
       <div>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Quick Actions</h2>
         <div className="flex flex-wrap gap-3">
-          {MODULE_CARDS.map(({ label, path, icon: Icon }) => (
+          {visibleModuleCards.map(({ label, path, icon: Icon }) => (
             <button
               key={path}
               data-testid={`quick-action-${path}`}

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { isAuthenticated } from '@/lib/auth'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, KeyRound, ArrowLeft } from 'lucide-react'
 import LoadingSpinner from '@/components/shared/LoadingSpinner'
 import TDBankLogo from '@/components/shared/TDBankLogo'
 
@@ -10,109 +10,209 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const { login, loading, error } = useAuth()
 
-  if (isAuthenticated()) return <Navigate to="/projects" replace />
+  // Step 2 — first-login password setup
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNew, setShowNew] = useState(false)
+  const [setupError, setSetupError] = useState('')
+  const [setupLoading, setSetupLoading] = useState(false)
 
-  const handleSubmit = async (e) => {
+  const { login, loading, error, mustSetPassword, completePasswordSetup } = useAuth()
+
+  // If already authenticated AND not waiting for first-time password setup, redirect to /projects
+  if (isAuthenticated() && !mustSetPassword) return <Navigate to="/projects" replace />
+
+  const handleLogin = async (e) => {
     e.preventDefault()
     await login(email, password)
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && email && password && !loading) {
-      handleSubmit(e)
+  const handleSetupPassword = async (e) => {
+    e.preventDefault()
+    setSetupError('')
+    if (newPassword.length < 8) { setSetupError('Password must be at least 8 characters'); return }
+    if (newPassword !== confirmPassword) { setSetupError('Passwords do not match'); return }
+    setSetupLoading(true)
+    try {
+      await completePasswordSetup(newPassword)
+    } catch (err) {
+      setSetupError(err.message || 'Failed to set password')
+    } finally {
+      setSetupLoading(false)
     }
   }
 
   return (
     <div className="min-h-screen flex bg-[#0D1F14]">
-      {/* Left: Login Form */}
+      {/* Left: Login / Set Password Form */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md animate-fade-in">
           {/* Logo */}
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
-                <TDBankLogo size={40} />
-              </div>
+              <TDBankLogo size={40} />
+            </div>
             <div>
               <h1 className="text-xl font-bold text-white">QGenie 2.0</h1>
               <p className="text-xs text-white/50">TD Bank Technology Centre of Excellence</p>
             </div>
           </div>
 
-          {/* Card */}
-          <div className="bg-[#1A3626] border border-white/10 rounded-2xl p-8 shadow-2xl">
-            <h2 className="text-2xl font-semibold text-white mb-1">Sign In</h2>
-            <p className="text-sm text-white/50 mb-6">Enter your TCoE credentials to continue</p>
+          {/* ── Step 1: Sign In ─────────────────────────────────── */}
+          {!mustSetPassword && (
+            <div className="bg-[#1A3626] border border-white/10 rounded-2xl p-8 shadow-2xl">
+              <h2 className="text-2xl font-semibold text-white mb-1">Sign In</h2>
+              <p className="text-sm text-white/50 mb-6">Enter your TCoE credentials to continue</p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
-                  Email
-                </label>
-                <input
-                  data-testid="login-email-input"
-                  type="email"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all"
-                  placeholder="you@tdbank.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  required
-                  autoFocus
-                />
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    data-testid="login-email-input"
+                    type="email"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all"
+                    placeholder="you@tdbank.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      data-testid="login-password-input"
+                      type={showPassword ? 'text' : 'password'}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all pr-12"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div
+                    data-testid="login-error"
+                    className="px-4 py-2.5 bg-red-900/30 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  data-testid="login-submit-btn"
+                  type="submit"
+                  disabled={loading || !email || !password}
+                  className="w-full py-3 bg-td-green hover:bg-td-dark-green text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                >
+                  {loading ? <LoadingSpinner size="sm" /> : null}
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </button>
+              </form>
+
+              <p className="text-xs text-white/30 text-center mt-4">
+                Account managed by your TCoE administrator
+              </p>
+            </div>
+          )}
+
+          {/* ── Step 2: Set New Password ────────────────────────── */}
+          {mustSetPassword && (
+            <div className="bg-[#1A3626] border border-white/10 rounded-2xl p-8 shadow-2xl">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-td-green/20 flex items-center justify-center flex-shrink-0">
+                  <KeyRound className="w-4 h-4 text-td-green" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white">Set New Password</h2>
+              </div>
+              <p className="text-sm text-white/50 mb-2 ml-11">
+                Your account was created with a temporary password.
+              </p>
+              <div className="ml-11 mb-6">
+                <span className="text-xs text-td-green bg-td-green/10 border border-td-green/20 rounded-full px-2.5 py-0.5 font-medium">
+                  Step 2 of 2
+                </span>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
-                  Password
-                </label>
-                <div className="relative">
+              <form onSubmit={handleSetupPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      data-testid="setup-new-password-input"
+                      type={showNew ? 'text' : 'password'}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all pr-12"
+                      placeholder="Min. 8 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNew((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-white/60 uppercase tracking-wider mb-1.5">
+                    Confirm New Password
+                  </label>
                   <input
-                    data-testid="login-password-input"
-                    type={showPassword ? 'text' : 'password'}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all pr-12"
+                    data-testid="setup-confirm-password-input"
+                    type="password"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 text-sm focus:outline-none focus:ring-2 focus:ring-td-green focus:border-td-green transition-all"
                     placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70 transition-colors"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
                 </div>
-              </div>
 
-              {error && (
-                <div
-                  data-testid="login-error"
-                  className="px-4 py-2.5 bg-red-900/30 border border-red-500/30 rounded-lg text-red-400 text-sm"
+                {setupError && (
+                  <div className="px-4 py-2.5 bg-red-900/30 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                    {setupError}
+                  </div>
+                )}
+
+                <button
+                  data-testid="setup-password-submit-btn"
+                  type="submit"
+                  disabled={setupLoading || !newPassword || !confirmPassword}
+                  className="w-full py-3 bg-td-green hover:bg-td-dark-green text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
                 >
-                  {error}
-                </div>
-              )}
+                  {setupLoading ? <LoadingSpinner size="sm" /> : null}
+                  {setupLoading ? 'Setting password...' : 'Set Password & Continue'}
+                </button>
+              </form>
 
-              <button
-                data-testid="login-submit-btn"
-                type="submit"
-                disabled={loading || !email || !password}
-                className="w-full py-3 bg-td-green hover:bg-td-dark-green text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-              >
-                {loading ? <LoadingSpinner size="sm" /> : null}
-                {loading ? 'Signing in...' : 'Sign In'}
-              </button>
-            </form>
-
-            <p className="text-xs text-white/30 text-center mt-4">
-              Account managed by your TCoE administrator
-            </p>
-          </div>
+              <p className="text-xs text-white/30 text-center mt-4">
+                You will be taken to your projects after setting a password.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -37,11 +37,27 @@ async def list_jobs(
     db: Session = Depends(get_db),
 ):
     q = db.query(QgJob)
-    if project_id:
-        check_project_access(user, project_id)
-        q = q.filter(QgJob.project_id == project_id)
-    elif user.role != "super_admin" and user.project_access is not None:
-        q = q.filter(QgJob.project_id.in_(user.project_access))
+
+    if user.role == "super_admin":
+        # Super admin: unrestricted — optionally filter by project
+        if project_id:
+            q = q.filter(QgJob.project_id == project_id)
+    elif user.is_admin:
+        # Project admin: all jobs for accessible projects only
+        if project_id:
+            check_project_access(user, project_id)
+            q = q.filter(QgJob.project_id == project_id)
+        elif user.project_access is not None:
+            q = q.filter(QgJob.project_id.in_(user.project_access))
+    else:
+        # Regular user: only their own jobs within accessible projects
+        q = q.filter(QgJob.user_id == user.id)
+        if project_id:
+            check_project_access(user, project_id)
+            q = q.filter(QgJob.project_id == project_id)
+        elif user.project_access is not None:
+            q = q.filter(QgJob.project_id.in_(user.project_access))
+
     jobs = q.order_by(QgJob.created_at.desc()).limit(limit).all()
     return [_job_to_out(j) for j in jobs]
 
@@ -52,11 +68,13 @@ async def get_job_result(job_id: str, user=Depends(get_current_user), db: Sessio
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     check_project_access(user, str(job.project_id))
+    if user.role != "super_admin" and not user.is_admin and str(job.user_id) != str(user.id):
+        raise HTTPException(status_code=403, detail="You do not have access to this job")
     return {"job_id": job_id, "status": job.status, "result": job.result_payload}
 
 
 @router.get("/{job_id}/stream")
-async def stream_job(job_id: str, token: str = Query(...)):
+async def stream_job(job_id: str, token: str = Query(...), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
         user_email = payload.get("sub")
@@ -64,6 +82,18 @@ async def stream_job(job_id: str, token: str = Query(...)):
             raise HTTPException(status_code=401, detail="Invalid token")
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user = db.query(QgUser).filter(QgUser.email == user_email, QgUser.is_active == True).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+
+    job = db.query(QgJob).filter(QgJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    check_project_access(user, str(job.project_id))
+    if user.role != "super_admin" and not user.is_admin and str(job.user_id) != str(user.id):
+        raise HTTPException(status_code=403, detail="You do not have access to this job")
 
     async def event_generator():
         async for event in run_job_stream(job_id, user_email):
@@ -96,7 +126,7 @@ def _create_job(db: Session, user: QgUser, job_type: str, project_id: str) -> Qg
 async def submit_tosca(payload: ToscaConvertInput, user=Depends(get_current_user), db: Session = Depends(get_db)):
     check_project_access(user, payload.project_id)
     project = db.query(QgProject).filter(QgProject.id == payload.project_id).first()
-    check_module_access(project, "tosca_convert")
+    check_module_access(project, "tosca", db)
     job = _create_job(db, user, "tosca-convert", payload.project_id)
     from app.agents.tosca_convert.agent import ToscaConvertAgent
     agent = ToscaConvertAgent(str(job.id))
@@ -108,7 +138,7 @@ async def submit_tosca(payload: ToscaConvertInput, user=Depends(get_current_user
 async def submit_test_gen(payload: TestGenInput, user=Depends(get_current_user), db: Session = Depends(get_db)):
     check_project_access(user, payload.project_id)
     project = db.query(QgProject).filter(QgProject.id == payload.project_id).first()
-    check_module_access(project, "test_generation")
+    check_module_access(project, "test-gen", db)
     job = _create_job(db, user, "test-gen", payload.project_id)
     from app.agents.test_generation.agent import TestGenerationAgent
     agent = TestGenerationAgent(str(job.id))
@@ -120,7 +150,7 @@ async def submit_test_gen(payload: TestGenInput, user=Depends(get_current_user),
 async def submit_rca(payload: RCAInput, user=Depends(get_current_user), db: Session = Depends(get_db)):
     check_project_access(user, payload.project_id)
     project = db.query(QgProject).filter(QgProject.id == payload.project_id).first()
-    check_module_access(project, "failure_rca")
+    check_module_access(project, "rca", db)
     job = _create_job(db, user, "rca", payload.project_id)
     from app.agents.failure_rca.agent import FailureRCAAgent
     agent = FailureRCAAgent(str(job.id))
@@ -132,7 +162,7 @@ async def submit_rca(payload: RCAInput, user=Depends(get_current_user), db: Sess
 async def submit_impact(payload: ImpactInput, user=Depends(get_current_user), db: Session = Depends(get_db)):
     check_project_access(user, payload.project_id)
     project = db.query(QgProject).filter(QgProject.id == payload.project_id).first()
-    check_module_access(project, "impact_analysis")
+    check_module_access(project, "impact", db)
     job = _create_job(db, user, "impact", payload.project_id)
     from app.agents.impact_analysis.agent import TestImpactAgent
     agent = TestImpactAgent(str(job.id))
@@ -144,7 +174,7 @@ async def submit_impact(payload: ImpactInput, user=Depends(get_current_user), db
 async def submit_regression(payload: RegressionOptInput, user=Depends(get_current_user), db: Session = Depends(get_db)):
     check_project_access(user, payload.project_id)
     project = db.query(QgProject).filter(QgProject.id == payload.project_id).first()
-    check_module_access(project, "regression_opt")
+    check_module_access(project, "regression", db)
     job = _create_job(db, user, "regression", payload.project_id)
     from app.agents.regression_opt.agent import RegressionOptimizationAgent
     agent = RegressionOptimizationAgent(str(job.id))
